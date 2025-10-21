@@ -1,0 +1,76 @@
+/* ===========================================
+   CENTRALIZED COLOR PALETTE
+   =========================================== 
+   
+   This file contains all color definitions used across:
+   - Main website (style.css)
+   - Climate-Smart Plant Selection App
+   - Climate Adjusted Provenancing Tool
+   
+   To change colors globally, modify the values here.
+*/
+
+:root {
+  /* Primary Green Palette */
+  --primary-green: #3e6d42;        /* Deep forest green - main brand color */
+  --primary-green-light: #5A744F;  /* Medium green - secondary/accent */
+  --primary-green-lighter: #8FA68E; /* Light green - tertiary/info */
+  --primary-green-dark: #316036;   /* Very dark green - for emphasis */
+  
+  /* Success/Positive Actions */
+  --success-green: #59c73b;        /* Bright green - success states, buttons */
+  --success-green-light: #7dd65b;  /* Light success green */
+  --success-green-dark: #4aa82e;   /* Dark success green */
+  
+  /* Background Colors */
+  --bg-primary: #ffffff;           /* Pure white backgrounds */
+  --bg-secondary: #fafafa;         /* Very light gray backgrounds */
+  --bg-tertiary: #f8f8f8;         /* Light gray backgrounds */
+  --bg-dark: #2c2c2c;             /* Dark backgrounds */
+  
+  /* Text Colors */
+  --text-primary: #2c2c2c;        /* Main text color */
+  --text-secondary: #555555;      /* Secondary text */
+  --text-muted: #666666;          /* Muted text */
+  --text-light: #999999;          /* Light text */
+  --text-white: #ffffff;          /* White text */
+  
+  /* Border and Accent Colors */
+  --border-light: #e5e5e5;        /* Light borders */
+  --border-medium: #ddd;          /* Medium borders */
+  --shadow-light: rgba(0, 0, 0, 0.05);     /* Light shadows */
+  --shadow-medium: rgba(0, 0, 0, 0.1);     /* Medium shadows */
+  --shadow-green: rgba(44, 85, 48, 0.1);   /* Green-tinted shadows */
+  
+  /* Interactive States */
+  --hover-overlay: rgba(44, 85, 48, 0.1);  /* Green hover overlay */
+  --focus-ring: rgba(44, 85, 48, 0.3);     /* Focus ring color */
+  
+  /* Data Visualization Colors */
+  --viz-green-1: #e8f5e9;         /* Lightest green for data viz */
+  --viz-green-2: #c8e6c9;         /* Light green for data viz */
+  --viz-green-3: #a5d6a7;         /* Medium green for data viz */
+  --viz-green-4: #81c784;         /* Darker green for data viz */
+}
+
+/* ===========================================
+   UTILITY CLASSES
+   =========================================== */
+
+/* Quick color application classes */
+.text-primary-green { color: var(--primary-green) !important; }
+.text-success-green { color: var(--success-green) !important; }
+.bg-primary-green { background-color: var(--primary-green) !important; }
+.bg-success-green { background-color: var(--success-green) !important; }
+.border-primary-green { border-color: var(--primary-green) !important; }
+
+/* Hover utilities */
+.hover-primary-green:hover { 
+  background-color: var(--primary-green) !important; 
+  color: var(--text-white) !important; 
+}
+
+.hover-success-green:hover { 
+  background-color: var(--success-green) !important; 
+  color: var(--text-white) !important; 
+}

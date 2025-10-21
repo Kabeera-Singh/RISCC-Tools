@@ -1,0 +1,73 @@
+/* Import centralized color palette */
+@import url('./shared-colors.css');
+
+        .resource-list .container {
+            max-width: 960px;
+        }
+
+        .resource-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 24px;
+            margin-bottom: 32px;
+            background-color: #f9f9f9;
+        }
+
+        @media (min-width: 768px) {
+            .resource-item {
+                flex-direction: row;
+                align-items: flex-start;
+                text-align: left;
+            }
+        }
+
+        .resource-image {
+            flex-shrink: 0;
+            margin-bottom: 20px;
+        }
+
+        @media (min-width: 768px) {
+            .resource-image {
+                margin-right: 24px;
+                margin-bottom: 0;
+            }
+        }
+
+        .resource-image img {
+            max-width: 250px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+
+        .resource-content h3 {
+            margin-top: 0;
+        }
+        
+        .resource-content a {
+            text-decoration: none;
+        }
+        
+        .resource-content a:hover {
+            text-decoration: underline;
+        }
+
+        .btn {
+            display: inline-block;
+            margin-top: 15px;
+            padding: 10px 20px;
+            background-color: #337ab7; /* Example color, adjust as needed */
+            color: #fff;
+            text-decoration: none;
+            border-radius: 5px;
+            font-weight: bold;
+            text-align: center;
+            border: 1px solid transparent;
+        }
+
+        .btn:hover {
+            background-color: #286090; /* Darker shade for hover */
+            text-decoration: none;
+        }

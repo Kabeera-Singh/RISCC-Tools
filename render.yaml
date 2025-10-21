@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: shiny-nginx-app
+    env: docker
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    port: 80
+    healthCheckPath: /
+    envVars:
+      - key: APPLICATION_LOGS_TO_STDOUT
+        value: "true"
+    disk:
+      name: shiny-storage
+      mountPath: /var/log
+      sizeGB: 1

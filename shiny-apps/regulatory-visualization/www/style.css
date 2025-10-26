@@ -1,18 +1,25 @@
+@import url('./shared-colors.css');
+
+
+* {
+  box-sizing: border-box;
+}
+
 /* General Body and Font Styling */
 body {
-  background-color: #f4fdf7; /* Light green background from original app */
+  background-color: var(--bg-light-red);
   font-family: 'Verdana', sans-serif;
   margin: 0;
   padding: 0;
-  color: #333;
+  color: var(--text-primary);
 }
 
 /* App Header */
 .app-header {
-  background-color: #2e5939; /* Dark green from original app */
-  color: white;
+  background-color: var(--primary-red);
+  color: var(--text-white);
   padding: 15px 30px;
-  border-bottom: 4px solid #4e944f;
+  border-bottom: 4px solid var(--primary-red-light);
 }
 
 .header-container h1 {
@@ -30,15 +37,15 @@ body {
 
 /* Info Card */
 .info-card {
-  background-color: #e6f5e9; /* Lighter green */
-  border: 1px solid #4e944f;
+  background-color: var(--bg-light-red);
+  border: 1px solid var(--primary-red-light);
   border-radius: 8px;
   padding: 15px;
   margin-bottom: 20px;
 }
 
 .info-card h5 {
-  color: #2e5939;
+  color: var(--primary-red);
   margin-top: 0;
   font-weight: bold;
 }
@@ -58,37 +65,37 @@ body {
 
 /* Sidebar */
 .sidebar {
-  flex: 1; /* Takes 1 part of the space */
+  flex: 1;
   min-width: 280px;
 }
 
 /* Main Panel */
 .main-panel {
-  flex: 2.5; /* Takes 2.5 parts of the space */
-  min-width: 0; /* Allows panel to shrink */
+  flex: 2.5;
+  min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 20px; /* Space between map and table cards */
+  gap: 20px;
 }
 
 /* Card Styling (for filters, map, results) */
 .filter-card,
 .results-card,
 .map-card {
-  background-color: #ffffff;
+  background-color: var(--bg-primary);
   border-radius: 8px;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.05);
-  overflow: hidden; /* Ensures header corners are rounded */
+  box-shadow: 0 4px 8px var(--shadow-light);
+  overflow: hidden;
 }
 
 /* Card Headers */
 .filter-header,
 .results-header,
 .map-header {
-  background-color: #4e944f; /* Medium green from original app */
-  color: white;
+  background-color: var(--primary-red-light);
+  color: var(--text-white);
   padding: 12px 20px;
-  border-bottom: 1px solid #ddd;
+  border-bottom: 1px solid var(--border-medium);
 }
 
 .filter-header h5,
@@ -115,15 +122,15 @@ body {
   display: block;
   font-weight: bold;
   margin-bottom: 5px;
-  color: #2e5939;
+  color: var(--primary-red);
   font-size: 14px;
 }
 
 /* Button Styling */
 .btn-custom,
-.download-button { /* .download-button is the class shiny gives downloadButtons */
-  background-color: #4e944f;
-  color: white !important; /* !important to override default shiny styles */
+.download-button {
+  background-color: var(--primary-red-light);
+  color: var(--text-white) !important;
   border: none;
   border-radius: 5px;
   padding: 10px 15px;
@@ -132,19 +139,19 @@ body {
   cursor: pointer;
   text-align: center;
   font-weight: bold;
-  display: block; /* Makes buttons stack nicely */
-  text-decoration: none; /* Removes underline from download button */
+  display: block;
+  text-decoration: none;
 }
 
 .btn-custom:hover,
 .download-button:hover {
-  background-color: #3b7d3b; /* Darker green on hover */
+  background-color: var(--primary-red-dark);
 }
 
 /* App Footer */
 .app-footer {
-  background-color: #2e5939;
-  color: #f4fdf7;
+  background-color: var(--primary-red);
+  color: var(--text-white);
   padding: 20px 30px;
   text-align: center;
   margin-top: 30px;

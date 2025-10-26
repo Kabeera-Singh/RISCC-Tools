@@ -1,0 +1,156 @@
+/* General Body and Font Styling */
+body {
+  background-color: #f4fdf7; /* Light green background from original app */
+  font-family: 'Verdana', sans-serif;
+  margin: 0;
+  padding: 0;
+  color: #333;
+}
+
+/* App Header */
+.app-header {
+  background-color: #2e5939; /* Dark green from original app */
+  color: white;
+  padding: 15px 30px;
+  border-bottom: 4px solid #4e944f;
+}
+
+.header-container h1 {
+  margin: 0;
+  font-size: 24px;
+  font-weight: bold;
+}
+
+/* Main Container */
+.main-container {
+  padding: 20px;
+  max-width: 1600px;
+  margin: 0 auto;
+}
+
+/* Info Card */
+.info-card {
+  background-color: #e6f5e9; /* Lighter green */
+  border: 1px solid #4e944f;
+  border-radius: 8px;
+  padding: 15px;
+  margin-bottom: 20px;
+}
+
+.info-card h5 {
+  color: #2e5939;
+  margin-top: 0;
+  font-weight: bold;
+}
+
+.info-card p {
+  margin-bottom: 0;
+  font-size: 14px;
+}
+
+/* Main Layout (Sidebar + Main Panel) */
+.main-layout {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 20px;
+}
+
+/* Sidebar */
+.sidebar {
+  flex: 1; /* Takes 1 part of the space */
+  min-width: 280px;
+}
+
+/* Main Panel */
+.main-panel {
+  flex: 2.5; /* Takes 2.5 parts of the space */
+  min-width: 0; /* Allows panel to shrink */
+  display: flex;
+  flex-direction: column;
+  gap: 20px; /* Space between map and table cards */
+}
+
+/* Card Styling (for filters, map, results) */
+.filter-card,
+.results-card,
+.map-card {
+  background-color: #ffffff;
+  border-radius: 8px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.05);
+  overflow: hidden; /* Ensures header corners are rounded */
+}
+
+/* Card Headers */
+.filter-header,
+.results-header,
+.map-header {
+  background-color: #4e944f; /* Medium green from original app */
+  color: white;
+  padding: 12px 20px;
+  border-bottom: 1px solid #ddd;
+}
+
+.filter-header h5,
+.results-header h5,
+.map-header h5 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: bold;
+}
+
+/* Card Bodies */
+.filter-body,
+.results-body,
+.map-body {
+  padding: 20px;
+}
+
+/* Form Styling */
+.form-group {
+  margin-bottom: 15px;
+}
+
+.form-group label {
+  display: block;
+  font-weight: bold;
+  margin-bottom: 5px;
+  color: #2e5939;
+  font-size: 14px;
+}
+
+/* Button Styling */
+.btn-custom,
+.download-button { /* .download-button is the class shiny gives downloadButtons */
+  background-color: #4e944f;
+  color: white !important; /* !important to override default shiny styles */
+  border: none;
+  border-radius: 5px;
+  padding: 10px 15px;
+  width: 100%;
+  margin-top: 10px;
+  cursor: pointer;
+  text-align: center;
+  font-weight: bold;
+  display: block; /* Makes buttons stack nicely */
+  text-decoration: none; /* Removes underline from download button */
+}
+
+.btn-custom:hover,
+.download-button:hover {
+  background-color: #3b7d3b; /* Darker green on hover */
+}
+
+/* App Footer */
+.app-footer {
+  background-color: #2e5939;
+  color: #f4fdf7;
+  padding: 20px 30px;
+  text-align: center;
+  margin-top: 30px;
+}
+
+.footer-container p {
+  margin: 0;
+  font-size: 14px;
+}

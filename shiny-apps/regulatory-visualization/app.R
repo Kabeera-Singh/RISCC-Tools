@@ -2,11 +2,12 @@ library(tidyverse)
 library(leaflet)
 library(readxl)
 library(shiny)
+library(shinyjs) # Added for the new UI structure
 library(DT)
 library(maps)
 
 # Load plant data
-plants_data <- readxl::read_xls('Regulatory visualization/data/Merged_Plants - MergedPlantsByState.xls')
+plants_data <- readxl::read_xls('data/Merged_Plants - MergedPlantsByState.xls')
 
 # State name and abbreviation mapping
 state_map <- data.frame(StateName = state.name, StateAbbr = state.abb, stringsAsFactors = FALSE)
@@ -30,69 +31,107 @@ clean_colnames <- function(df) {
     )
 }
 
-# UI
+# -----------------------------------------------------------------
+# NEW UI (User Interface)
+# -----------------------------------------------------------------
 ui <- fluidPage(
-  tags$head(
-    tags$style(HTML("
-      body {
-        background-color: #f4fdf7;
-        font-family: 'Verdana', sans-serif;
-      }
-      .well {
-        background-color: #2e5939 !important;
-        color: white !important;
-        border-radius: 8px;
-      }
-      .well p {
-        font-size: 16px;
-        line-height: 1.5;
-      }
-      h2 {
-        color: darkolivegreen;
-        font-weight: bold;
-      }
-      .btn {
-        background-color: #4e944f;
-        color: white;
-        border: none;
-        border-radius: 5px;
-        margin-top: 10px;
-        width: 100%;
-      }
-      .btn:hover {
-        background-color: #3b7d3b;
-      }
-    "))
+tags$head(
+    tags$link(rel = "stylesheet", type = "text/css", href = "style.css"),
+        tags$link(
+      href = "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css",
+      rel = "stylesheet"
+    )
   ),
   
-  titlePanel(HTML("<h2><i class='fas fa-seedling'></i> State-Based Regulated Plant Data Viewer</h2>")),
+  useShinyjs(),
   
-  fluidRow(
-    column(3,
-           wellPanel(
-             h4("How to use this app!"),
-             p("This app allows you to filter between a particular state or species name to find the data you're looking for!")
-           ),
-           br(),
-           wellPanel(
-             h4("Filter Options"),
-             selectInput("selected_state", "Choose a State:", choices = c("All", state_map$StateName)),
-             selectInput("selected_species", "Choose a Species:", choices = NULL),
-             actionButton("reset_btn", "Reset Filters", class = "btn"),
-             downloadButton("download_csv", "Download CSV"),
-             downloadButton("download_txt", "Download TXT")
-           )
-    ),
-    
-    column(9,
-           leafletOutput("state_map", height = 600),
-           br(),
-           DTOutput("filtered_table")
-    )
+  # 1. App Header
+  div(class = "app-header",
+      div(class = "header-container",
+          h1(tags$i(class = "fas fa-seedling"), " State-Based Regulated Plant Data Viewer")
+      )
+  ),
+  
+  # 2. Main Content Area
+  div(class = "main-container",
+      
+      # "How to use" info card
+      div(class = "info-card",
+          h5(tags$i(class = "fas fa-info-circle"), " How to Use This Tool"),
+          p("This app allows you to filter by a particular state or species name to find the data you're looking for. The map will highlight your selections, and the table below will update.")
+      ),
+      
+      # Main layout with Sidebar and Main Panel
+      div(class = "main-layout",
+          
+          # 2a. Sidebar for filters
+          div(class = "sidebar",
+              div(class = "filter-card",
+                  div(class = "filter-header",
+                      h5(tags$i(class = "fas fa-filter"), " Filter Options")
+                  ),
+                  div(class = "filter-body",
+                      div(class = "form-group",
+                          tags$label(`for` = "selected_state",
+                                     tags$i(class = "fas fa-map-marker-alt"), " Choose a State:"
+                          ),
+                          selectInput("selected_state", label = NULL,
+                                      choices = c("All", state_map$StateName), width = "100%")
+                      ),
+                      
+                      div(class = "form-group",
+                          tags$label(`for` = "selected_species",
+                                     tags$i(class = "fas fa-leaf"), " Choose a Species:"
+                          ),
+                          selectInput("selected_species", label = NULL,
+                                      choices = NULL, width = "100%")
+                      ),
+                      
+                      actionButton("reset_btn", "Reset Filters", 
+                                   icon = icon("refresh"), class = "btn-custom"),
+                      
+                      downloadButton("download_csv", "Download CSV", class = "btn-custom"),
+                      downloadButton("download_txt", "Download TXT", class = "btn-custom")
+                  )
+              )
+          ),
+          
+          # 2b. Main Panel for Map and Table
+          div(class = "main-panel",
+              # Map Card
+              div(class = "map-card",
+                  div(class = "map-header",
+                      h5(tags$i(class = "fas fa-map-location-dot"), " Regulation Map")
+                  ),
+                  div(class = "map-body",
+                      leafletOutput("state_map", height = 600)
+                  )
+              ),
+              
+              # Results Table Card
+              div(class = "results-card",
+                   div(class = "results-header",
+                       h5(tags$i(class = "fas fa-list"), " Filtered Data")
+                   ),
+                   div(class = "results-body",
+                       DTOutput("filtered_table")
+                   )
+              )
+          )
+      )
+  ),
+  
+  # 3. App Footer
+  tags$footer(class = "app-footer",
+              div(class = "footer-container",
+                  p("Regulated Plant Database Viewer")
+              )
   )
 )
 
-# Server
+# -----------------------------------------------------------------
+# SERVER (Unchanged)
+# -----------------------------------------------------------------
 server <- function(input, output, session) {
   
   # Populate species dropdown
@@ -269,5 +308,5 @@ server <- function(input, output, session) {
   )
 }
 
-app <- shinyApp(ui, server)
-runApp(app, port = 1234, launch.browser = TRUE)
+# Run the app
+shinyApp(ui, server)

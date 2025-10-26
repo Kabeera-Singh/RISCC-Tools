@@ -1,5 +1,5 @@
 /* ===========================================
-   CENTRALIZED COLOR PALETTE
+   CENTRALIZED COLOR PALETTE - UMASS AMHERST
    =========================================== 
    
    This file contains all color definitions used across:
@@ -8,28 +8,33 @@
    - Climate Adjusted Provenancing Tool
    
    To change colors globally, modify the values here.
+   
+   UMass Amherst Official Brand Colors:
+   - UMass Maroon: #881c1c (primary brand color)
+   - UMass Black: #212721 (complementary)
+   - White: #ffffff (complementary)
 */
 
 :root {
-  /* Primary Green Palette */
-  --primary-green: #3e6d42;        /* Deep forest green - main brand color */
-  --primary-green-light: #5A744F;  /* Medium green - secondary/accent */
-  --primary-green-lighter: #8FA68E; /* Light green - tertiary/info */
-  --primary-green-dark: #316036;   /* Very dark green - for emphasis */
+  /* Primary Maroon Palette (replacing green) */
+  --primary-green: #881c1c;        /* UMass Maroon - main brand color */
+  --primary-green-light: #a73333;  /* Light maroon - secondary/accent */
+  --primary-green-lighter: #c95555; /* Lighter maroon - tertiary/info */
+  --primary-green-dark: #6b1616;   /* Dark maroon - for emphasis */
   
-  /* Success/Positive Actions */
-  --success-green: #59c73b;        /* Bright green - success states, buttons */
-  --success-green-light: #7dd65b;  /* Light success green */
-  --success-green-dark: #4aa82e;   /* Dark success green */
+  /* Success/Positive Actions (warmer reds) */
+  --success-green: #c73b3b;        /* Bright red - success states, buttons */
+  --success-green-light: #d95f5f;  /* Light red */
+  --success-green-dark: #a82e2e;   /* Dark red */
   
   /* Background Colors */
   --bg-primary: #ffffff;           /* Pure white backgrounds */
   --bg-secondary: #fafafa;         /* Very light gray backgrounds */
   --bg-tertiary: #f8f8f8;         /* Light gray backgrounds */
-  --bg-dark: #2c2c2c;             /* Dark backgrounds */
+  --bg-dark: #212721;             /* UMass Black - dark backgrounds */
   
   /* Text Colors */
-  --text-primary: #2c2c2c;        /* Main text color */
+  --text-primary: #212721;        /* UMass Black - main text color */
   --text-secondary: #555555;      /* Secondary text */
   --text-muted: #666666;          /* Muted text */
   --text-light: #999999;          /* Light text */
@@ -40,17 +45,17 @@
   --border-medium: #ddd;          /* Medium borders */
   --shadow-light: rgba(0, 0, 0, 0.05);     /* Light shadows */
   --shadow-medium: rgba(0, 0, 0, 0.1);     /* Medium shadows */
-  --shadow-green: rgba(44, 85, 48, 0.1);   /* Green-tinted shadows */
+  --shadow-green: rgba(136, 28, 28, 0.1);   /* Maroon-tinted shadows */
   
   /* Interactive States */
-  --hover-overlay: rgba(44, 85, 48, 0.1);  /* Green hover overlay */
-  --focus-ring: rgba(44, 85, 48, 0.3);     /* Focus ring color */
+  --hover-overlay: rgba(136, 28, 28, 0.1);  /* Maroon hover overlay */
+  --focus-ring: rgba(136, 28, 28, 0.3);     /* Focus ring color */
   
   /* Data Visualization Colors */
-  --viz-green-1: #e8f5e9;         /* Lightest green for data viz */
-  --viz-green-2: #c8e6c9;         /* Light green for data viz */
-  --viz-green-3: #a5d6a7;         /* Medium green for data viz */
-  --viz-green-4: #81c784;         /* Darker green for data viz */
+  --viz-green-1: #fce8e8;         /* Lightest maroon for data viz */
+  --viz-green-2: #f5c7c7;         /* Light maroon for data viz */
+  --viz-green-3: #e89999;         /* Medium maroon for data viz */
+  --viz-green-4: #d46666;         /* Darker maroon for data viz */
 }
 
 /* ===========================================
@@ -58,6 +63,7 @@
    =========================================== */
 
 /* Quick color application classes */
+/* Note: Class names retained for compatibility, but now apply UMass Maroon colors */
 .text-primary-green { color: var(--primary-green) !important; }
 .text-success-green { color: var(--success-green) !important; }
 .bg-primary-green { background-color: var(--primary-green) !important; }

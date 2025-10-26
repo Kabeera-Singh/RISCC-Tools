@@ -12,11 +12,11 @@ library(DT)
 library(maps)
 
 # Load appendix data and eco-regions
-s2 <- read.csv("Abundance visualization/data/appendixS2.csv")
-s3 <- read.csv("Abundance visualization/data/appendixS3.csv")
-s4 <- read.csv("Abundance visualization/data/appendixS4.csv")
+s2 <- read.csv("data/appendixS2.csv")
+s3 <- read.csv("data/appendixS3.csv")
+s4 <- read.csv("data/appendixS4.csv")
 
-eco <- read_sf("Abundance visualization/data/ecoshape/us_eco_l3_state_boundaries.shp") %>%
+eco <- read_sf("data/ecoshape/us_eco_l3_state_boundaries.shp") %>%
   st_transform(crs = 4326) %>%
   st_make_valid() %>%
   unite(NA_L3KEY, NA_L3CODE, NA_L3NAME, sep = "  ")
@@ -32,8 +32,6 @@ s2_abun <- s2_forests %>%
 
 # pull out species names from filtered data
 final_unique <- data.frame(unique(s2_abun$Orig.Genus.species))
-
-
 
 # join s3 and s4 for to plot ecoregions for map1
 s7 <- merge(s3, s4, by = "USDA.Genus.species")
@@ -78,9 +76,6 @@ ui <- page_fillable(
       card(
         leafletOutput("map1")
       ),
-
-     
-      
       # display download buttons
       card(
         h3("Abundant Invasive Plants in Ecoregion:"),
@@ -257,5 +252,4 @@ server <- function(input, output, session) {
 }
 
 # Run the application
-app <- shinyApp(ui = ui, server = server)
-runApp(app, port = 80, launch.browser = TRUE)
+shinyApp(ui = ui, server = server)

@@ -41,7 +41,7 @@ ENV GDAL_CONFIG=/usr/bin/gdal-config
 ENV PROJ_LIB=/usr/share/proj
 
 # Install basic CRAN packages first (excluding problematic spatial ones)
-RUN R -e "install.packages(c('shiny', 'tidyverse', 'shinyWidgets', 'DT', 'stringr', 'readxl', 'shinyjs', 'rrapply', 'data.table', 'shinydashboard', 'bslib', 'dplyr', 'ggplot2', 'remotes','DBI','duckdb'), repos='https://cran.rstudio.com/', dependencies=TRUE)"
+RUN R -e "install.packages(c('shiny', 'tidyverse', 'shinyWidgets', 'DT', 'stringr', 'readxl', 'shinyjs', 'rrapply', 'data.table', 'shinydashboard', 'bslib', 'dplyr', 'ggplot2', 'remotes','DBI','duckdb','shiny.fluent'), repos='https://cran.rstudio.com/', dependencies=TRUE)"
 
 # Install sf package separately (terra dependency)
 RUN R -e "install.packages('sf', repos='https://cran.rstudio.com/', configure.args='--with-proj-lib=/usr/lib/x86_64-linux-gnu/ --with-proj-include=/usr/include/')"
@@ -75,8 +75,8 @@ COPY shiny-apps/abundance-visualization/ /srv/shiny-server/abundance-visualizati
 COPY shiny-apps/regulatory-visualization/ /srv/shiny-server/regulatory-visualization/
 
 # Copy the shared colors CSS file to both apps
-COPY nginx/html/css/shared-colors.css /srv/shiny-server/abundance-visualization/www/shared-colors.css
-COPY nginx/html/css/shared-colors.css /srv/shiny-server/regulatory-visualization/www/shared-colors.css
+COPY nginx/html/www/css/shared-colors.css /srv/shiny-server/abundance-visualization/www/shared-colors.css
+COPY nginx/html/www/css/shared-colors.css /srv/shiny-server/regulatory-visualization/www/shared-colors.css
 
 # Create supervisor configuration
 RUN mkdir -p /var/log/supervisor

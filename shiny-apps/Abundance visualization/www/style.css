@@ -1,0 +1,674 @@
+/* ===========================================
+   INVASIVE PLANT ABUNDANCE VISUALIZATION STYLES
+   =========================================== */
+@import url('./shared-colors.css');
+
+/* ===========================================
+   RESET & GLOBAL STYLES
+   =========================================== */
+* {
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background-color: var(--bg-secondary);
+  color: var(--text-primary);
+  line-height: 1.6;
+  margin: 0;
+  padding: 0;
+}
+
+/* ===========================================
+   LAYOUT CONTAINERS
+   =========================================== */
+.header-container,
+.main-container,
+.footer-container {
+  max-width: 1450px;
+  margin: 0 auto;
+  padding: 0 1rem;
+}
+
+.main-layout {
+  display: grid;
+  grid-template-columns: 320px 1fr;
+  gap: 2rem;
+  align-items: start;
+}
+
+.main-panel {
+  min-width: 0;
+}
+
+/* ===========================================
+   HEADER STYLES
+   =========================================== */
+.app-header {
+  background: linear-gradient(135deg, var(--primary-red), var(--primary-red-light));
+  color: var(--text-white);
+  padding: 1.5rem 0;
+  box-shadow: 0 2px 10px var(--shadow-medium);
+  margin-bottom: 2rem;
+}
+
+.header-container {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.app-header h1 {
+  font-size: 2.2rem;
+  font-weight: 600;
+  margin: 0;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+.home-btn {
+  background: rgba(255, 255, 255, 0.15);
+  color: var(--text-white);
+  padding: 0.75rem 1.5rem;
+  border-radius: 8px;
+  text-decoration: none;
+  font-weight: 500;
+  transition: all 0.3s ease;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  backdrop-filter: blur(10px);
+}
+
+.home-btn:hover {
+  background: rgba(255, 255, 255, 0.25);
+  color: var(--text-white);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+}
+
+.home-btn i {
+  margin-right: 0.5rem;
+}
+
+/* ===========================================
+   CARD COMPONENTS
+   =========================================== */
+.info-card {
+  background: linear-gradient(135deg, var(--viz-red-1), var(--viz-red-2));
+  border: 1px solid var(--border-light);
+  border-radius: 12px;
+  padding: 1.5rem;
+  margin-bottom: 2rem;
+  box-shadow: 0 2px 10px var(--shadow-light);
+}
+
+.info-card h5 {
+  color: var(--primary-red);
+  font-weight: 600;
+  margin-bottom: 1rem;
+  font-size: 1.5rem;
+}
+
+.info-card h5 i {
+  margin-right: 0.5rem;
+  color: var(--alert-red);
+}
+
+.info-card p {
+  margin: 0;
+  color: var(--text-secondary);
+  line-height: 1.7;
+}
+
+.filter-card,
+.results-card {
+  background: var(--bg-primary);
+  border: 1px solid var(--border-light);
+  border-radius: 12px;
+  box-shadow: 0 4px 20px var(--shadow-light);
+  overflow: hidden;
+}
+
+.filter-header,
+.results-header {
+  background: linear-gradient(135deg, var(--primary-red), var(--primary-red-light));
+  color: var(--text-white);
+  padding: 1rem 1.5rem;
+  border-bottom: 1px solid var(--border-light);
+}
+
+.filter-header h5,
+.results-header h5 {
+  margin: 0;
+  font-weight: 600;
+  font-size: 1.5rem;
+}
+
+.filter-header i,
+.results-header i {
+  margin-right: 0.5rem;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.results-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.results-count {
+  background: rgba(255, 255, 255, 0.15);
+  padding: 0.5rem 1rem;
+  border-radius: 20px;
+  font-size: 1.4rem;
+  font-weight: 500;
+  backdrop-filter: blur(10px);
+}
+
+.filter-body {
+  padding: 1.5rem;
+}
+
+/* ===========================================
+   SIDEBAR & FILTERING
+   =========================================== */
+.sidebar {
+  position: sticky;
+  top: 2rem;
+}
+
+.form-group {
+  margin-bottom: 1.5rem;
+}
+
+.form-group label {
+  font-weight: 600;
+  color: var(--primary-red);
+  margin-bottom: 0.5rem;
+  display: block;
+}
+
+.form-group label i {
+  margin-right: 0.5rem;
+  color: var(--alert-red);
+}
+
+/* Coordinate Inputs */
+.coordinate-inputs {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.coordinate-inputs .form-group {
+  margin-bottom: 0;
+}
+
+/* Input Styling */
+input[type="number"],
+.selectize-input {
+  width: 100%;
+  border: 2px solid var(--border-light);
+  border-radius: 8px;
+  padding: 0.75rem;
+  font-size: 1rem;
+  transition: all 0.3s ease;
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+}
+
+input[type="number"]:focus,
+.selectize-input.focus {
+  border-color: var(--primary-red);
+  box-shadow: 0 0 0 3px var(--focus-ring);
+  outline: none;
+}
+
+/* Button Styling */
+.btn-primary {
+  background: linear-gradient(135deg, var(--primary-red), var(--primary-red-dark));
+  color: var(--text-white);
+  border: none;
+  padding: 0.75rem 1.5rem;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 3px 8px var(--shadow-red);
+}
+
+.btn-primary:hover {
+  background: linear-gradient(135deg, var(--primary-red-light), var(--primary-red));
+  transform: translateY(-2px);
+  box-shadow: 0 5px 15px var(--shadow-red);
+}
+
+.btn-primary i {
+  margin-right: 0.5rem;
+}
+
+/* ===========================================
+   MAP CONTAINERS
+   =========================================== */
+.map-card {
+  margin-bottom: 2rem;
+}
+
+.map-container {
+  padding: 1rem;
+  background: var(--bg-tertiary);
+}
+
+.leaflet-container {
+  border-radius: 8px;
+  border: 2px solid var(--border-light);
+}
+
+/* Map Legend Styles */
+.map-legend {
+  padding: 1rem 1.5rem;
+  background: var(--bg-tertiary);
+  border-top: 1px solid var(--border-light);
+}
+
+.map-legend h6 {
+  color: var(--primary-red);
+  font-weight: 600;
+  margin-bottom: 1rem;
+  font-size: 1.2rem;
+}
+
+.map-legend h6 i {
+  margin-right: 0.5rem;
+  color: var(--alert-red);
+}
+
+.legend-items {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.5rem;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.legend-marker {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  display: inline-block;
+  border: 2px solid var(--text-primary);
+}
+
+.legend-marker-location {
+  background-color: #2196F3;
+  border-color: #1976D2;
+}
+
+.legend-marker-ecoregion {
+  background-color: transparent;
+  border-color: var(--primary-red);
+  border-width: 3px;
+}
+
+.legend-marker-distribution {
+  background-color: var(--alert-red);
+  border-color: var(--primary-red-dark);
+}
+
+.legend-text {
+  font-size: 0.95rem;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+/* Layer Control Checkboxes */
+.filter-body .checkbox {
+  margin-bottom: 0.5rem;
+}
+
+.filter-body .checkbox label {
+  font-weight: 500;
+  color: var(--text-primary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.filter-body .checkbox input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+  accent-color: var(--primary-red);
+}
+
+/* ===========================================
+   TABLE STYLES
+   =========================================== */
+.table-container {
+  padding: 1rem;
+  overflow-x: auto;
+  max-width: 100%;
+}
+
+.dataTables_wrapper {
+  font-family: inherit;
+  width: 100%;
+}
+
+.dataTable {
+  border-collapse: separate;
+  border-spacing: 0;
+  width: 100%;
+  table-layout: auto;
+}
+
+/* Table Headers */
+.dataTable thead th {
+  background: linear-gradient(135deg, var(--primary-red), var(--primary-red-light));
+  color: var(--text-white);
+  font-weight: 700;
+  padding: 14px 12px;
+  border: 1px solid var(--primary-red-dark);
+  text-align: left;
+  font-size: 1.4rem;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+  white-space: nowrap;
+}
+
+/* Table Body Cells */
+.dataTable tbody td {
+  padding: 12px 10px;
+  vertical-align: middle;
+  border-right: 1px solid var(--border-light);
+  border-bottom: 1px solid var(--border-light);
+  font-size: 1.4rem;
+  line-height: 1.4;
+}
+
+/* Table Rows */
+.dataTable tbody tr {
+  transition: all 0.2s ease;
+  border-left: 3px solid transparent;
+}
+
+.dataTable tbody tr:hover {
+  background: linear-gradient(90deg, var(--hover-overlay), rgba(136, 28, 28, 0.05));
+  border-left-color: var(--primary-red);
+  transform: translateX(2px);
+  box-shadow: 0 2px 8px var(--shadow-red);
+}
+
+.dataTable tbody tr:nth-child(even) {
+  background-color: var(--bg-tertiary);
+}
+
+.dataTable tbody tr:nth-child(odd) {
+  background-color: var(--bg-primary);
+}
+
+/* ===========================================
+   TABLE CONTROLS
+   =========================================== */
+.dataTables_length,
+.dataTables_filter,
+.dataTables_info,
+.dataTables_paginate {
+  margin: 15px 0;
+  color: var(--text-primary);
+}
+
+.dataTables_filter {
+  float: right;
+}
+
+.dataTables_filter input {
+  background: var(--bg-primary);
+  border: 2px solid var(--border-light);
+  border-radius: 20px;
+  color: var(--text-primary);
+  padding: 8px 16px;
+  font-size: 0.95rem;
+  transition: all 0.3s ease;
+  margin-left: 0.5rem;
+}
+
+.dataTables_filter input:focus {
+  border-color: var(--primary-red);
+  outline: none;
+  box-shadow: 0 0 0 3px var(--focus-ring);
+}
+
+/* Pagination */
+.dataTables_paginate {
+  text-align: center;
+  clear: both;
+  padding-top: 15px;
+}
+
+.dataTables_paginate .paginate_button {
+  background: var(--bg-primary);
+  border: 2px solid var(--border-light);
+  border-radius: 8px;
+  padding: 8px 14px;
+  margin: 0 3px;
+  color: var(--text-primary);
+  text-decoration: none;
+  transition: all 0.3s ease;
+  font-weight: 500;
+}
+
+.dataTables_paginate .paginate_button:hover {
+  background: linear-gradient(135deg, var(--primary-red-light), var(--primary-red));
+  color: var(--text-white);
+  border-color: var(--primary-red);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px var(--shadow-red);
+}
+
+.dataTables_paginate .paginate_button.current {
+  background: linear-gradient(135deg, var(--primary-red), var(--primary-red-dark));
+  color: var(--text-white);
+  border-color: var(--primary-red-dark);
+  font-weight: 700;
+}
+
+/* ===========================================
+   DOWNLOAD BUTTONS
+   =========================================== */
+.download-section {
+  padding: 1rem 1.5rem;
+  background: var(--bg-tertiary);
+  border-top: 1px solid var(--border-light);
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.btn-download {
+  background: linear-gradient(135deg, var(--primary-red), var(--primary-red-dark));
+  color: var(--text-white);
+  border: none;
+  padding: 0.75rem 1.5rem;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 3px 8px var(--shadow-red);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.btn-download:hover {
+  background: linear-gradient(135deg, var(--primary-red-light), var(--primary-red));
+  transform: translateY(-2px);
+  box-shadow: 0 5px 15px var(--shadow-red);
+}
+
+.btn-csv {
+  background: linear-gradient(135deg, #28a745, #20913a);
+}
+
+.btn-csv:hover {
+  background: linear-gradient(135deg, #34ce57, #28a745);
+}
+
+.btn-pdf {
+  background: linear-gradient(135deg, var(--alert-red), var(--alert-red-dark));
+}
+
+.btn-pdf:hover {
+  background: linear-gradient(135deg, var(--alert-red-light), var(--alert-red));
+}
+
+/* ===========================================
+   SCROLLBARS
+   =========================================== */
+.table-container::-webkit-scrollbar {
+  height: 12px;
+  width: 12px;
+}
+
+.table-container::-webkit-scrollbar-track {
+  background: var(--bg-tertiary);
+  border-radius: 6px;
+}
+
+.table-container::-webkit-scrollbar-thumb {
+  background: linear-gradient(90deg, var(--primary-red-lighter), var(--primary-red));
+  border-radius: 6px;
+  border: 2px solid var(--bg-tertiary);
+}
+
+.table-container::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(90deg, var(--primary-red), var(--primary-red-dark));
+}
+
+/* ===========================================
+   FOOTER
+   =========================================== */
+.app-footer {
+  background: var(--primary-red-dark);
+  color: var(--text-white);
+  text-align: center;
+  padding: 2rem 0;
+  margin-top: 3rem;
+}
+
+.app-footer p {
+  margin: 0;
+  font-size: 1.2rem;
+  opacity: 0.9;
+}
+
+/* ===========================================
+   LOADING STATES
+   =========================================== */
+.loading-indicator {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1000;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(8px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+}
+
+.spinner {
+  width: 3rem;
+  height: 3rem;
+  border: 4px solid var(--border-light);
+  border-top: 4px solid var(--primary-red);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 1rem;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* ===========================================
+   RESPONSIVE DESIGN
+   =========================================== */
+@media (max-width: 992px) {
+  .main-layout {
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+  }
+  
+  .sidebar {
+    position: static;
+  }
+}
+
+@media (max-width: 768px) {
+  .header-container {
+    flex-direction: column;
+    text-align: center;
+  }
+  
+  .app-header h1 {
+    font-size: 1.8rem;
+  }
+  
+  .results-header {
+    flex-direction: column;
+    text-align: center;
+  }
+  
+  .coordinate-inputs {
+    gap: 0.75rem;
+  }
+  
+  .download-section {
+    flex-direction: column;
+  }
+  
+  .btn-download {
+    width: 100%;
+    justify-content: center;
+  }
+  
+  .legend-items {
+    flex-direction: column;
+    gap: 1rem;
+  }
+  
+  .map-container {
+    padding: 0.5rem;
+  }
+}
+
+@media (max-width: 576px) {
+  .header-container,
+  .main-container,
+  .footer-container {
+    padding: 0 0.5rem;
+  }
+  
+  .app-header h1 {
+    font-size: 1.5rem;
+  }
+  
+  .home-btn {
+    padding: 0.5rem 1rem;
+    font-size: 0.9rem;
+  }
+}

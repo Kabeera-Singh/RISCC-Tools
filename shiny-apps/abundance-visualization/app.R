@@ -12,14 +12,11 @@ library(rmarkdown)
 
 # Load appendix data and eco-regions
 s2 <- read.csv("data/appendixS2.csv")
-s3 <- read.csv("data/appendixS3.csv")
-s4 <- read.csv("data/appendixS4.csv")
+# s3 <- read.csv("data/appendixS3.csv")
+# s4 <- read.csv("data/appendixS4.csv")
 
 # Load ecoregions and prepare them for spatial operations
-eco <- read_sf("data/ecoshape/us_eco_l3_state_boundaries.shp") %>%
-  st_transform(crs = 4326) %>%
-  st_make_valid() %>%
-  unite(NA_L3KEY, NA_L3CODE, NA_L3NAME, sep = "  ", remove = FALSE)
+eco <- readRDS("data/eco_simplified.rds")
 
 # pull out data from eastern temperate forests and northern forests
 s2_forests <- s2 %>%
@@ -33,7 +30,8 @@ s2_abun <- s2_forests %>%
 final_unique <- data.frame(unique(s2_abun$Orig.Genus.species))
 
 # join s3 and s4 for to plot ecoregions
-s7 <- merge(s3, s4, by = "USDA.Genus.species")
+# s7 <- merge(s3, s4, by = "USDA.Genus.species")
+s7 <- readRDS("data/s7_merged.rds")
 
 # create df of just unique ecoregion/ species combinations for list attribiute
 L3_list <- data.frame(
@@ -41,9 +39,7 @@ L3_list <- data.frame(
   NA_L3KEY = s7$NA_L3KEY
 )
 
-# -----------------------------------------------------------------
-# NEW UI (User Interface)
-# -----------------------------------------------------------------
+
 ui <- fluidPage(
   tags$head(
     # Link to the external CSS file (must be in 'www' folder)
@@ -60,7 +56,10 @@ ui <- fluidPage(
   # 1. App Header
   div(class = "app-header",
       div(class = "header-container",
-          h1(tags$i(class = "fas fa-leaf"), " Plant Abundance & Ecoregion Viewer")
+          h1(tags$i(class = "fas fa-leaf"), " Plant Abundance & Ecoregion Viewer"),
+                a(href = "/", class = "home-btn",
+        tags$i(class = "fas fa-home"), " Back to Home"
+      )
       )
   ),
   
@@ -118,7 +117,7 @@ ui <- fluidPage(
                       h5(tags$i(class = "fas fa-map-location-dot"), " Ecoregion & Species Map")
                   ),
                   div(class = "map-body",
-                      leafletOutput("map", height = 600)
+                      leafletOutput("map", height = 450)
                   )
               ),
               
@@ -134,8 +133,8 @@ ui <- fluidPage(
                       ),
                       hr(),
                       fluidRow(
-                        column(6, downloadButton("download_csv", "Download CSV", class = "btn-custom-small")),
-                        column(6, downloadButton("download_pdf", "Download PDF", class = "btn-custom-small"))
+                        column(6, downloadButton("download_csv", "Download CSV", class = "btn-custom")),
+                        column(6, downloadButton("download_pdf", "Download PDF", class = "btn-custom"))
                       )
                   )
               )
@@ -152,12 +151,9 @@ ui <- fluidPage(
 )
 
 
-# -----------------------------------------------------------------
-# SERVER LOGIC (Restored Lat/Lon functionality)
-# -----------------------------------------------------------------
+
 server <- function(input, output, session) {
   
-  # Reactive values to hold the point and region (RESTORED)
   point <- reactiveVal(NULL)
   region <- reactiveVal(NULL)
   
@@ -172,7 +168,7 @@ server <- function(input, output, session) {
     )
   })
   
-  # Action observer for coordinates (RESTORED)
+  # Action observer for coordinates
   observeEvent(input$go, {
     req(input$lat, input$lon)
 
@@ -215,8 +211,10 @@ server <- function(input, output, session) {
   
   # Reactive for selected species points
   filtered_species_data <- reactive({
-    # Allow filtering by species without an ecoregion, but default to NULL if "None"
-    req(input$selected_species != "") 
+    # Return NULL if no species selected instead of using req()
+    if(is.null(input$selected_species) || input$selected_species == "") {
+      return(NULL)
+    }
     s2 %>%
       filter(Orig.Genus.species == input$selected_species)
   })
@@ -248,7 +246,7 @@ server <- function(input, output, session) {
     }
   })
   
-  # Species List Table (UPDATED to use region())
+  # Species List Table
   output$list <- renderTable({
     if (is.null(region())) {
       return(data.frame(Message = "Enter coordinates and click 'Find Ecoregion' to see the species list."))
@@ -260,7 +258,7 @@ server <- function(input, output, session) {
     data
   }, colnames = FALSE) # Use colnames=FALSE as the dataframe already has a clean header
   
-  # Map Updater Observer (UPDATED for point/region logic)
+  # Map Updater Observer
   observe({
     proxy <- leafletProxy("map") %>%
       clearGroup("ecoregion") %>%
@@ -365,8 +363,6 @@ server <- function(input, output, session) {
     }
     
   })
-  
-  # -- DOWNLOADS --
   
   # CSV download
   output$download_csv <- downloadHandler(

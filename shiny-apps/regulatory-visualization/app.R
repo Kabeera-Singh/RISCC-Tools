@@ -7,7 +7,7 @@ library(DT)
 library(maps)
 
 # Load plant data
-plants_data <- readxl::read_xls('data/Merged_Plants - MergedPlantsByState.xls')
+plants_data <- read.csv("data/Merged_Plants - MergedPlantsByState.csv")
 
 # State name and abbreviation mapping
 state_map <- data.frame(StateName = state.name, StateAbbr = state.abb, stringsAsFactors = FALSE)
@@ -35,97 +35,132 @@ clean_colnames <- function(df) {
 # NEW UI (User Interface)
 # -----------------------------------------------------------------
 ui <- fluidPage(
-tags$head(
+  tags$head(
     tags$link(rel = "stylesheet", type = "text/css", href = "style.css"),
-        tags$link(
+    tags$link(
       href = "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css",
       rel = "stylesheet"
     )
   ),
-  
   useShinyjs(),
-  
+
   # 1. App Header
-  div(class = "app-header",
-      div(class = "header-container",
-          h1(tags$i(class = "fas fa-seedling"), " State-Based Regulated Plant Data Viewer")
+  div(
+    class = "app-header",
+    div(
+      class = "header-container",
+      h1(tags$i(class = "fas fa-seedling"), " State-Based Regulated Plant Data Viewer"),
+            a(href = "/", class = "home-btn",
+        tags$i(class = "fas fa-home"), " Back to Home"
       )
+    )
   ),
-  
+
   # 2. Main Content Area
-  div(class = "main-container",
-      
-      # "How to use" info card
-      div(class = "info-card",
-          h5(tags$i(class = "fas fa-info-circle"), " How to Use This Tool"),
-          p("This app allows you to filter by a particular state or species name to find the data you're looking for. The map will highlight your selections, and the table below will update.")
-      ),
-      
-      # Main layout with Sidebar and Main Panel
-      div(class = "main-layout",
-          
-          # 2a. Sidebar for filters
-          div(class = "sidebar",
-              div(class = "filter-card",
-                  div(class = "filter-header",
-                      h5(tags$i(class = "fas fa-filter"), " Filter Options")
-                  ),
-                  div(class = "filter-body",
-                      div(class = "form-group",
-                          tags$label(`for` = "selected_state",
-                                     tags$i(class = "fas fa-map-marker-alt"), " Choose a State:"
-                          ),
-                          selectInput("selected_state", label = NULL,
-                                      choices = c("All", state_map$StateName), width = "100%")
-                      ),
-                      
-                      div(class = "form-group",
-                          tags$label(`for` = "selected_species",
-                                     tags$i(class = "fas fa-leaf"), " Choose a Species:"
-                          ),
-                          selectInput("selected_species", label = NULL,
-                                      choices = NULL, width = "100%")
-                      ),
-                      
-                      actionButton("reset_btn", "Reset Filters", 
-                                   icon = icon("refresh"), class = "btn-custom"),
-                      
-                      downloadButton("download_csv", "Download CSV", class = "btn-custom"),
-                      downloadButton("download_txt", "Download TXT", class = "btn-custom")
-                  )
-              )
+  div(
+    class = "main-container",
+
+    # "How to use" info card
+    div(
+      class = "info-card",
+      h5(tags$i(class = "fas fa-info-circle"), " How to Use This Tool"),
+      p("This app allows you to filter by a particular state or species name to find the data you're looking for. The map will highlight your selections, and the table below will update."),
+      p("Note: The data from this resource was compiled from the National Plant Board Website"), tags$a(href="https://nationalplantboard.org/regulated-plant-list/", "here")
+    ),
+
+    # Main layout with Sidebar and Main Panel
+    div(
+      class = "main-layout",
+
+      # 2a. Sidebar for filters
+      div(
+        class = "sidebar",
+        div(
+          class = "filter-card",
+          div(
+            class = "filter-header",
+            h5(tags$i(class = "fas fa-filter"), " Filter Options")
           ),
-          
-          # 2b. Main Panel for Map and Table
-          div(class = "main-panel",
-              # Map Card
-              div(class = "map-card",
-                  div(class = "map-header",
-                      h5(tags$i(class = "fas fa-map-location-dot"), " Regulation Map")
-                  ),
-                  div(class = "map-body",
-                      leafletOutput("state_map", height = 600)
-                  )
+          div(
+            class = "filter-body",
+            div(
+              class = "form-group",
+              tags$label(
+                `for` = "selected_state",
+                tags$i(class = "fas fa-map-marker-alt"), " Choose a State:"
               ),
-              
-              # Results Table Card
-              div(class = "results-card",
-                   div(class = "results-header",
-                       h5(tags$i(class = "fas fa-list"), " Filtered Data")
-                   ),
-                   div(class = "results-body",
-                       DTOutput("filtered_table")
-                   )
+              selectInput("selected_state",
+                label = NULL,
+                choices = c("All", state_map$StateName), width = "100%"
               )
+            ),
+            div(
+              class = "form-group",
+              tags$label(
+                `for` = "selected_species",
+                tags$i(class = "fas fa-leaf"), " Choose a Species:"
+              ),
+              selectInput("selected_species",
+                label = NULL,
+                choices = NULL, width = "100%"
+              )
+            ),
+            actionButton("reset_btn", "Reset Filters",
+              icon = icon("refresh"), class = "btn-custom"
+            ),
+            hr(),
+            # Map Card
+            div(
+              class = "map-card",
+              div(
+                class = "map-header",
+                h5(tags$i(class = "fas fa-map-location-dot"), " Regulation Map")
+              ),
+              div(
+                class = "map-body",
+                leafletOutput("state_map", height = 200)
+              )
+            )
           )
+        )
+      ),
+
+      # 2b. Main Panel for Map and Table
+      div(
+        class = "main-panel",
+        # Results Table Card
+        div(
+          class = "results-card",
+          div(
+            class = "results-header",
+            h5(tags$i(class = "fas fa-list"), " Filtered Data")
+          ),
+          div(
+            class = "results-body",
+            DTOutput("filtered_table"),
+            hr(),
+            div(
+              class = "download-buttons",
+              downloadButton("download_csv", "Download CSV", 
+                           class = "btn-custom-small", 
+                           icon = icon("file-csv")),
+              downloadButton("download_txt", "Download TXT", 
+                           class = "btn-custom-small",
+                           icon = icon("file-lines"))
+            )
+          )
+        )
       )
+    )
   ),
-  
+
   # 3. App Footer
-  tags$footer(class = "app-footer",
-              div(class = "footer-container",
-                  p("Regulated Plant Database Viewer")
-              )
+  tags$footer(
+    class = "app-footer",
+    div(
+      class = "footer-container",
+      p("Regulated Plant Database Viewer")
+    )
   )
 )
 
@@ -133,81 +168,85 @@ tags$head(
 # SERVER (Unchanged)
 # -----------------------------------------------------------------
 server <- function(input, output, session) {
-  
   # Populate species dropdown
   observe({
     species_choices <- sort(unique(plants_data$Clean.Scientific.Name))
     updateSelectInput(session, "selected_species", choices = c("All", species_choices))
   })
-  
+
   # Reset button clears filters
   observeEvent(input$reset_btn, {
     updateSelectInput(session, "selected_state", selected = "All")
     updateSelectInput(session, "selected_species", selected = "All")
   })
-  
+
   # Filtering
   filtered_data <- reactive({
     df <- plants_data
-    
+
     if (input$selected_state != "All") {
       selected_abbr <- state_map$StateAbbr[state_map$StateName == input$selected_state]
       df <- df %>% filter(State == selected_abbr)
     }
-    
+
     if (!is.null(input$selected_species) && input$selected_species != "All") {
       df <- df %>% filter(Clean.Scientific.Name == input$selected_species)
     }
-    
+
     clean_colnames(df)
   })
-  
+
   # Table
   output$filtered_table <- renderDT({
     datatable(
       filtered_data(),
-      options = list(pageLength = 10, dom = 'frtip'),
+      options = list(pageLength = 10, dom = "frtip"),
       rownames = FALSE
     )
   })
-  
+
   # Base map
   output$state_map <- renderLeaflet({
-    leaflet() %>%
+    leaflet(options = leafletOptions(minZoom = 2,maxZoom = 20)) %>%
       addProviderTiles("CartoDB.Positron") %>%
       setView(lng = -98.5795, lat = 39.8283, zoom = 4)
   })
-  
+
   # Highlighting
   observe({
-    leafletProxy("state_map") %>% clearShapes() %>% clearControls()
-    
+    leafletProxy("state_map") %>%
+      clearShapes() %>%
+      clearControls()
+
     species_active <- (!is.null(input$selected_species) && input$selected_species != "All")
     state_active <- (input$selected_state != "All")
-    
+
     # Reset to full view when no filters
     if (!species_active && !state_active) {
       leafletProxy("state_map") %>%
         setView(lng = -98.5795, lat = 39.8283, zoom = 4)
       return()
     }
-    
+
     # Highlight species states
     if (species_active) {
       states_for_species <- plants_data %>%
         filter(Clean.Scientific.Name == input$selected_species) %>%
         pull(State) %>%
         unique()
-      
+
       for (abbr in states_for_species) {
         state_name <- state_map$StateName[state_map$StateAbbr == abbr]
         if (length(state_name) == 0) next
-        
+
         region_name <- state_to_maps_name(state_name)
-        poly <- tryCatch({
-          maps::map("state", regions = region_name, plot = FALSE, fill = TRUE)
-        }, error = function(e) NULL)
-        
+        poly <- tryCatch(
+          {
+            maps::map("state", regions = region_name, plot = FALSE, fill = TRUE)
+          },
+          error = function(e) NULL
+        )
+
         if (!is.null(poly) && length(poly$x) > 0) {
           leafletProxy("state_map") %>%
             addPolygons(
@@ -223,17 +262,20 @@ server <- function(input, output, session) {
         }
       }
     }
-    
+
     # Highlight selected state
     if (state_active) {
       region_name <- state_to_maps_name(input$selected_state)
-      
-      selected_state_poly <- tryCatch({
-        maps::map("state", regions = region_name, plot = FALSE, fill = TRUE)
-      }, error = function(e) {
-        list(x = numeric(0), y = numeric(0))
-      })
-      
+
+      selected_state_poly <- tryCatch(
+        {
+          maps::map("state", regions = region_name, plot = FALSE, fill = TRUE)
+        },
+        error = function(e) {
+          list(x = numeric(0), y = numeric(0))
+        }
+      )
+
       # Adjust Alaska/Hawaii
       if (region_name == "alaska" && length(selected_state_poly$x) > 0) {
         selected_state_poly$x <- (selected_state_poly$x - 160) * 0.35 - 130
@@ -243,7 +285,7 @@ server <- function(input, output, session) {
         selected_state_poly$x <- selected_state_poly$x - 50
         selected_state_poly$y <- selected_state_poly$y + 25
       }
-      
+
       if (length(selected_state_poly$x) > 0) {
         leafletProxy("state_map") %>%
           addPolygons(
@@ -257,7 +299,7 @@ server <- function(input, output, session) {
             group = "state"
           )
       }
-      
+
       # Zoom to selected state
       if (region_name == "alaska") {
         leafletProxy("state_map") %>%
@@ -272,26 +314,26 @@ server <- function(input, output, session) {
           fitBounds(lng_bounds[1], lat_bounds[1], lng_bounds[2], lat_bounds[2])
       }
     }
-    
+
     # Legend (only if something selected)
     if (species_active || state_active) {
       legend_colors <- c()
       legend_labels <- c()
-      
+
       if (species_active) {
         legend_colors <- c(legend_colors, "forestgreen")
-        legend_labels <- c(legend_labels, "Species Present")
+        legend_labels <- c(legend_labels, "Species Regulated")
       }
       if (state_active) {
         legend_colors <- c(legend_colors, "gold")
         legend_labels <- c(legend_labels, "Selected State")
       }
-      
+
       leafletProxy("state_map") %>%
         addLegend("bottomright", colors = legend_colors, labels = legend_labels, opacity = 0.7)
     }
   })
-  
+
   # Downloads
   output$download_csv <- downloadHandler(
     filename = function() paste0("plant_data_", Sys.Date(), ".csv"),
@@ -299,7 +341,7 @@ server <- function(input, output, session) {
       write.csv(filtered_data(), file, row.names = FALSE)
     }
   )
-  
+
   output$download_txt <- downloadHandler(
     filename = function() paste0("plant_data_", Sys.Date(), ".txt"),
     content = function(file) {

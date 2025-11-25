@@ -2,15 +2,19 @@ library(tidyverse)
 library(leaflet)
 library(readxl)
 library(shiny)
-library(shinyjs) # Added for the new UI structure
+library(shinyjs)
 library(DT)
 library(maps)
 
 # Load plant data
 plants_data <- read.csv("data/Merged_Plants - MergedPlantsByState.csv")
 
-# State name and abbreviation mapping
-state_map <- data.frame(StateName = state.name, StateAbbr = state.abb, stringsAsFactors = FALSE)
+# State name and abbreviation mapping (including Puerto Rico)
+state_map <- data.frame(
+  StateName = c(state.name, "Puerto Rico"),
+  StateAbbr = c(state.abb, "PR"),
+  stringsAsFactors = FALSE
+)
 
 # Map formatting helper
 state_to_maps_name <- function(state_name) {
@@ -32,7 +36,7 @@ clean_colnames <- function(df) {
 }
 
 # -----------------------------------------------------------------
-# NEW UI (User Interface)
+# UI (User Interface)
 # -----------------------------------------------------------------
 ui <- fluidPage(
   tags$head(
@@ -50,7 +54,7 @@ ui <- fluidPage(
     div(
       class = "header-container",
       h1(tags$i(class = "fas fa-seedling"), " State-Based Regulated Plant Data Viewer"),
-            a(href = "/", class = "home-btn",
+      a(href = "/", class = "home-btn",
         tags$i(class = "fas fa-home"), " Back to Home"
       )
     )
@@ -165,7 +169,7 @@ ui <- fluidPage(
 )
 
 # -----------------------------------------------------------------
-# SERVER (Unchanged)
+# SERVER
 # -----------------------------------------------------------------
 server <- function(input, output, session) {
   # Populate species dropdown
@@ -197,17 +201,36 @@ server <- function(input, output, session) {
   })
 
   # Table
-  output$filtered_table <- renderDT({
-    datatable(
-      filtered_data(),
-      options = list(pageLength = 10, dom = "frtip"),
-      rownames = FALSE
+output$filtered_table <- renderDT({
+  df <- filtered_data() %>%
+    select(-`Raw Scientific Name`)  # Remove this column
+  
+  # Create custom header with tooltips using htmltools
+  sketch <- htmltools::withTags(table(
+    class = 'display',
+    thead(
+      tr(
+        th('State ', span(class="info-icon", '?', span(class="tooltip-text", 'U.S. state or territory abbreviation where the plant is regulated'))),
+        th('Scientific Name ', span(class="info-icon", '?', span(class="tooltip-text", 'Standardized scientific name after data cleaning and validation'))),
+        th('Regulatory Level ', span(class="info-icon", '?', span(class="tooltip-text", 'Classification of regulatory status (e.g., Noxious Weeds, Aquatic Invasive Weeds, Prohibited, Restricted)'))),
+        th('Accepted Symbol (USDA Plants) ', span(class="info-icon", '?', span(class="tooltip-text", 'Official USDA PLANTS database symbol for the species'))),
+        th('Native Status ', span(class="info-icon", '?', span(class="tooltip-text", 'Geographic origin: (N) = Native, (I) = Introduced/Invasive, (W) = Waif/Occasional. Format: Region(Status), e.g., L48(I) means introduced in lower 48 states')))
+      )
     )
-  })
+  ))
+  
+  datatable(
+    df,
+    container = sketch,
+    options = list(pageLength = 10, dom = "frtip"),
+    rownames = FALSE,
+    escape = FALSE
+  )
+})
 
   # Base map
   output$state_map <- renderLeaflet({
-    leaflet(options = leafletOptions(minZoom = 2,maxZoom = 20)) %>%
+    leaflet(options = leafletOptions(minZoom = 2, maxZoom = 20)) %>%
       addProviderTiles("CartoDB.Positron") %>%
       setView(lng = -98.5795, lat = 39.8283, zoom = 4)
   })
@@ -240,6 +263,10 @@ server <- function(input, output, session) {
         if (length(state_name) == 0) next
 
         region_name <- state_to_maps_name(state_name)
+        
+        # Skip if not in maps database (like Puerto Rico)
+        if (!(region_name %in% c(state_to_maps_name(state.name), "alaska", "hawaii"))) next
+        
         poly <- tryCatch(
           {
             maps::map("state", regions = region_name, plot = FALSE, fill = TRUE)
@@ -267,51 +294,86 @@ server <- function(input, output, session) {
     if (state_active) {
       region_name <- state_to_maps_name(input$selected_state)
 
-      selected_state_poly <- tryCatch(
-        {
-          maps::map("state", regions = region_name, plot = FALSE, fill = TRUE)
-        },
-        error = function(e) {
-          list(x = numeric(0), y = numeric(0))
-        }
-      )
-
-      # Adjust Alaska/Hawaii
-      if (region_name == "alaska" && length(selected_state_poly$x) > 0) {
-        selected_state_poly$x <- (selected_state_poly$x - 160) * 0.35 - 130
-        selected_state_poly$y <- (selected_state_poly$y * 0.35) + 25
-      }
-      if (region_name == "hawaii" && length(selected_state_poly$x) > 0) {
-        selected_state_poly$x <- selected_state_poly$x - 50
-        selected_state_poly$y <- selected_state_poly$y + 25
-      }
-
-      if (length(selected_state_poly$x) > 0) {
+      # Handle Puerto Rico separately (not in maps package)
+      if (region_name == "puerto rico") {
         leafletProxy("state_map") %>%
-          addPolygons(
-            lng = selected_state_poly$x,
-            lat = selected_state_poly$y,
-            fillColor = "transparent",
-            fillOpacity = 0,
+          setView(lng = -66.5, lat = 18.2, zoom = 8) %>%
+          addCircleMarkers(
+            lng = -66.5, lat = 18.2,
+            radius = 15,
+            fillColor = "gold",
+            fillOpacity = 0.5,
             color = "gold",
             weight = 4,
-            label = input$selected_state,
-            group = "state"
+            label = "Puerto Rico (data available, map outline not available)"
           )
-      }
-
-      # Zoom to selected state
-      if (region_name == "alaska") {
+      } else if (region_name == "alaska") {
+        # Handle Alaska with actual geographic coordinates
         leafletProxy("state_map") %>%
-          fitBounds(-170, 50, -130, 72)
+          setView(lng = -152, lat = 64, zoom = 4) %>%
+          addRectangles(
+            lng1 = -170, lat1 = 54,
+            lng2 = -130, lat2 = 72,
+            fillColor = "gold",
+            fillOpacity = 0.3,
+            color = "gold",
+            weight = 4,
+            label = "Alaska"
+          )
       } else if (region_name == "hawaii") {
+        # Handle Hawaii with actual geographic coordinates
         leafletProxy("state_map") %>%
-          fitBounds(-162, 18, -154, 23)
-      } else if (length(selected_state_poly$x) > 0) {
-        lng_bounds <- range(selected_state_poly$x, na.rm = TRUE)
-        lat_bounds <- range(selected_state_poly$y, na.rm = TRUE)
-        leafletProxy("state_map") %>%
-          fitBounds(lng_bounds[1], lat_bounds[1], lng_bounds[2], lat_bounds[2])
+          setView(lng = -157, lat = 20.5, zoom = 6) %>%
+          addRectangles(
+            lng1 = -160.5, lat1 = 18.5,
+            lng2 = -154.5, lat2 = 22.5,
+            fillColor = "gold",
+            fillOpacity = 0.3,
+            color = "gold",
+            weight = 4,
+            label = "Hawaii"
+          )
+      } else {
+        selected_state_poly <- tryCatch(
+          {
+            maps::map("state", regions = region_name, plot = FALSE, fill = TRUE)
+          },
+          error = function(e) {
+            list(x = numeric(0), y = numeric(0))
+          }
+        )
+        
+        if (length(selected_state_poly$x) > 0) {
+          leafletProxy("state_map") %>%
+            addPolygons(
+              lng = selected_state_poly$x,
+              lat = selected_state_poly$y,
+              fillColor = "gold",
+              fillOpacity = 0.3,
+              color = "gold",
+              weight = 4,
+              label = input$selected_state,
+              group = "state"
+            )
+        }
+
+        # Zoom to selected state with proper bounds
+        if (length(selected_state_poly$x) > 0) {
+          lng_bounds <- range(selected_state_poly$x, na.rm = TRUE)
+          lat_bounds <- range(selected_state_poly$y, na.rm = TRUE)
+          
+          # Add padding to bounds
+          lng_padding <- diff(lng_bounds) * 0.1
+          lat_padding <- diff(lat_bounds) * 0.1
+          
+          leafletProxy("state_map") %>%
+            fitBounds(
+              lng_bounds[1] - lng_padding, 
+              lat_bounds[1] - lat_padding, 
+              lng_bounds[2] + lng_padding, 
+              lat_bounds[2] + lat_padding
+            )
+        }
       }
     }
 

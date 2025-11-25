@@ -1,11 +1,9 @@
 @import url('./shared-colors.css');
 
-
 * {
   box-sizing: border-box;
 }
 
-/* General Body and Font Styling */
 body {
   background-color: var(--bg-light-red);
   font-family: 'Verdana', sans-serif;
@@ -14,7 +12,6 @@ body {
   color: var(--text-primary);
 }
 
-/* App Header */
 .app-header {
   background-color: var(--primary-red);
   color: var(--text-white);
@@ -28,14 +25,12 @@ body {
   font-weight: bold;
 }
 
-/* Main Container */
 .main-container {
   padding: 20px;
   max-width: 1600px;
   margin: 0 auto;
 }
 
-/* Info Card */
 .info-card {
   background-color: var(--bg-light-red);
   border: 1px solid var(--primary-red-light);
@@ -55,7 +50,6 @@ body {
   font-size: 14px;
 }
 
-/* Main Layout (Sidebar + Main Panel) */
 .main-layout {
   display: flex;
   flex-direction: row;
@@ -63,13 +57,11 @@ body {
   gap: 20px;
 }
 
-/* Sidebar */
 .sidebar {
   flex: 1;
   min-width: 280px;
 }
 
-/* Main Panel */
 .main-panel {
   flex: 2.5;
   min-width: 0;
@@ -78,7 +70,6 @@ body {
   gap: 20px;
 }
 
-/* Card Styling (for filters, map, results) */
 .filter-card,
 .results-card,
 .map-card {
@@ -88,7 +79,6 @@ body {
   overflow: hidden;
 }
 
-/* Card Headers */
 .filter-header,
 .results-header,
 .map-header {
@@ -106,14 +96,12 @@ body {
   font-weight: bold;
 }
 
-/* Card Bodies */
 .filter-body,
 .results-body,
 .map-body {
   padding: 20px;
 }
 
-/* Form Styling */
 .form-group {
   margin-bottom: 15px;
 }
@@ -126,7 +114,6 @@ body {
   font-size: 14px;
 }
 
-/* Button Styling */
 .btn-custom,
 .download-button {
   background-color: var(--primary-red-light);
@@ -148,7 +135,6 @@ body {
   background-color: var(--primary-red-dark);
 }
 
-/* App Footer */
 .app-footer {
   background-color: var(--primary-red);
   color: var(--text-white);
@@ -162,12 +148,6 @@ body {
   font-size: 14px;
 }
 
-/* ============================================
-   TOOLTIP STYLES FOR TABLE HEADERS
-   Add these to your existing style.css file
-   ============================================ */
-
-/* Info icon (question mark) */
 .info-icon {
   position: relative;
   display: inline-block;
@@ -190,7 +170,6 @@ body {
   background-color: #2980b9;
 }
 
-/* Tooltip text (hidden by default) */
 .info-icon .tooltip-text {
   visibility: hidden;
   opacity: 0;
@@ -201,7 +180,7 @@ body {
   border-radius: 6px;
   padding: 12px;
   position: absolute;
-  z-index: 1000;
+  z-index: 9999;
   bottom: 125%;
   left: 50%;
   margin-left: -140px;
@@ -212,9 +191,9 @@ body {
   transition: opacity 0.3s, visibility 0.3s;
   pointer-events: none;
   white-space: normal;
+  user-select: none;
 }
 
-/* Tooltip arrow */
 .info-icon .tooltip-text::after {
   content: "";
   position: absolute;
@@ -226,13 +205,11 @@ body {
   border-color: #2c3e50 transparent transparent transparent;
 }
 
-/* Show tooltip on hover */
 .info-icon:hover .tooltip-text {
   visibility: visible;
   opacity: 1;
 }
 
-/* Adjust tooltip position for right-side columns */
 th:nth-last-child(-n+2) .info-icon .tooltip-text {
   left: auto;
   right: -10px;
@@ -244,78 +221,34 @@ th:nth-last-child(-n+2) .info-icon .tooltip-text::after {
   right: 20px;
 }
 
-/* Mobile responsive adjustments */
-@media (max-width: 768px) {
-  .info-icon .tooltip-text {
-    width: 220px;
-    margin-left: -110px;
-    font-size: 12px;
-    padding: 10px;
-  }
-  
-  .info-icon {
-    width: 16px;
-    height: 16px;
-    line-height: 16px;
-    font-size: 11px;
-  }
-}
-
-/* Ensure tooltips work well with DataTables */
-.dataTables_wrapper table thead th {
-  position: relative;
-}
-
-/* Prevent tooltip text from being selected */
-.info-icon .tooltip-text {
-  user-select: none;
-  -webkit-user-select: none;
-  -moz-user-select: none;
-  -ms-user-select: none;
-}
-
-/* Ensure tooltips can overflow containers */
 .dataTables_wrapper,
 .results-body,
 .results-card {
   overflow: visible !important;
 }
 
-/* Ensure table container allows overflow for tooltips */
-.dataTables_scrollBody {
-  overflow: visible !important;
-}
-
-/* Make sure the tooltip has high z-index */
-.info-icon .tooltip-text {
-  visibility: hidden;
-  opacity: 0;
-  width: 280px;
-  background-color: #2c3e50;
-  color: #fff;
-  text-align: left;
-  border-radius: 6px;
-  padding: 12px;
-  position: absolute;
-  z-index: 9999; /* Increased from 1000 */
-  bottom: 125%;
-  left: 50%;
-  margin-left: -140px;
-  font-size: 13px;
-  font-weight: normal;
-  line-height: 1.4;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-  transition: opacity 0.3s, visibility 0.3s;
-  pointer-events: none;
-  white-space: normal;
-}
-
-/* Ensure table header allows overflow */
-.dataTables_wrapper table thead {
+.dataTables_scrollBody,
+.dataTables_wrapper table thead,
+.dataTables_wrapper table thead th {
   overflow: visible !important;
 }
 
 .dataTables_wrapper table thead th {
   position: relative;
-  overflow: visible !important;
+}
+
+@media (max-width: 768px) {
+  .info-icon {
+    width: 16px;
+    height: 16px;
+    line-height: 16px;
+    font-size: 11px;
+  }
+  
+  .info-icon .tooltip-text {
+    width: 220px;
+    margin-left: -110px;
+    font-size: 12px;
+    padding: 10px;
+  }
 }

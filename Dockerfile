@@ -42,6 +42,7 @@ ENV PROJ_LIB=/usr/share/proj
 
 # Install basic CRAN packages first (excluding problematic spatial ones)
 RUN R -e "install.packages(c('shiny', 'tidyverse', 'shinyWidgets', 'DT', 'stringr', 'readxl', 'shinyjs', 'rrapply', 'data.table', 'shinydashboard', 'bslib', 'dplyr', 'ggplot2', 'remotes','DBI','duckdb'), repos='https://cran.rstudio.com/', dependencies=TRUE)"
+RUN R -e "install.packages(c('httr','jsonlite'), repos='https://cran.rstudio.com/', dependencies=TRUE)"
 
 # Install remaining spatial packages
 RUN R -e "install.packages(c('leaflet', 'leafpop','shiny.fluent'), repos='https://cran.rstudio.com/', dependencies=TRUE)"

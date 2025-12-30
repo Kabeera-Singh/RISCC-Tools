@@ -177,6 +177,7 @@ body {
 .sidebar {
   position: sticky;
   top: 2rem;
+  overflow: visible;
 }
 
 .form-group {
@@ -331,6 +332,7 @@ input[type="number"]:focus,
 /* Layer Control Checkboxes */
 .filter-body .checkbox {
   margin-bottom: 0.5rem;
+  overflow: visible;
 }
 
 .filter-body .checkbox label {
@@ -739,6 +741,7 @@ input[type="number"]:focus,
 /* Smooth transitions */
 .map-card, .results-card, .filter-card, .summary-card {
   transition: transform 0.2s, box-shadow 0.2s;
+  overflow: visible;
 }
 
 .map-card:hover, .results-card:hover, .summary-card:hover {
@@ -800,6 +803,10 @@ input[type="number"]:focus,
   margin-right: 5px;
 }
 
+btn-custom {
+  width: 50%;
+}
+
 /* Better spacing for coordinate inputs */
 .form-group {
   margin-bottom: 15px;
@@ -827,4 +834,68 @@ input[type="number"]:focus,
   .stat-box h3 {
     font-size: 1.5rem;
   }
+}
+/* Additional styles for radio buttons and instruction box */
+
+.radio-group {
+  margin-top: 8px;
+  margin-bottom: 15px;
+}
+
+.radio-group .shiny-input-radiogroup {
+  padding: 0;
+}
+
+.radio-group label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: normal;
+  cursor: pointer;
+  padding: 8px 12px;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+  background-color: #f8f9fa;
+}
+
+.radio-group label:hover {
+  background-color: #e9ecef;
+}
+
+.radio-group input[type="radio"] {
+  margin-right: 8px;
+  cursor: pointer;
+}
+
+.radio-group input[type="radio"]:checked + span {
+  font-weight: 600;
+  color: #007bff;
+}
+
+.instruction-box {
+  background-color: #e7f3ff;
+  border-left: 4px solid #007bff;
+  padding: 12px 15px;
+  border-radius: 4px;
+  margin-top: 10px;
+}
+
+.instruction-box p {
+  margin: 0;
+  color: #004085;
+  font-size: 14px;
+}
+
+.instruction-box i {
+  margin-right: 8px;
+  color: #007bff;
+}
+
+/* Conditional panel spacing */
+.form-group {
+  margin-bottom: 15px;
+}
+
+/* Ensure consistent spacing for all input methods */
+#zipcode {
+  margin-bottom: 5px;
 }

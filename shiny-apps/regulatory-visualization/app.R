@@ -59,8 +59,8 @@ ui <- fluidPage(
       class = "info-card",
       h5(tags$i(class = "fas fa-info-circle"), " How to Use This Tool"),
       p("This app allows you to filter by a particular state or species name to find the data you're looking for. The map will highlight your selections, and the table below will update."),
-      p("Note: The data from this resource was compiled from the National Plant Board Website"), 
-      tags$a(href="https://nationalplantboard.org/regulated-plant-list/", "here")
+      p("Note: The data from this resource was compiled from the National Plant Board Website."), 
+      tags$a(href="https://www.nationalplantboard.org/state-law--regulation-summaries.html", "Here", target="_blank")
     ),
 
     div(

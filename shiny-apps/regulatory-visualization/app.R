@@ -5,8 +5,9 @@ library(shiny)
 library(shinyjs)
 library(DT)
 library(maps)
+library(readr)
 
-plants_data <- read.csv("data/Final Regulated Plants by State June 2025 - MergedPlantsByState.csv")
+plants_data <- read_csv("data/Final Regulated Plants by State June 2025 - MergedPlantsByState.csv", show_col_types = FALSE)
 
 state_map <- data.frame(
   StateName = c(state.name, "Puerto Rico"),

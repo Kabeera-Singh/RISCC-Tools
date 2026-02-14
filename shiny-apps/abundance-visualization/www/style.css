@@ -572,6 +572,33 @@ input[type="number"]:focus,
   opacity: 0.9;
 }
 
+.citation-section {
+  margin-top: 15px;
+  padding-top: 15px;
+  border-top: 1px solid rgba(255, 255, 255, 0.3);
+  font-size: 12px;
+  font-style: italic;
+}
+
+.citation-section p {
+  margin: 0;
+}
+
+/* Abundant species definition callout */
+.abundant-definition {
+  background-color: rgba(0, 123, 255, 0.08);
+  border-left: 4px solid #007BFF;
+  padding: 12px 15px;
+  border-radius: 4px;
+  margin-bottom: 15px;
+}
+
+.abundant-definition p {
+  margin: 0;
+  font-size: 14px;
+  color: var(--text-primary);
+}
+
 /* ===========================================
    LOADING STATES
    =========================================== */
@@ -827,6 +854,28 @@ btn-custom {
 
 /* Responsive adjustments */
 @media (max-width: 768px) {
+  .main-layout {
+    grid-template-columns: 1fr;
+  }
+  
+  .sidebar,
+  .main-panel {
+    min-width: 100%;
+  }
+  
+  .main-container {
+    padding: 15px;
+  }
+  
+  .results-body,
+  .table-container {
+    overflow-x: auto;
+  }
+  
+  .app-header h1 {
+    font-size: 1.4rem;
+  }
+  
   .stats-grid {
     grid-template-columns: 1fr;
   }

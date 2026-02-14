@@ -12,8 +12,12 @@ library(httr)
 library(rmarkdown)
 library(readr)
 
-# Load appendix data and eco-regions
-s2 <- read_csv("data/appendixS2.csv", show_col_types = FALSE)
+# Load appendix data (RDS preferred for speed; fallback to CSV)
+if (file.exists("data/appendixS2.rds")) {
+  s2 <- readRDS("data/appendixS2.rds")
+} else {
+  s2 <- read_csv("data/appendixS2.csv", show_col_types = FALSE)
+}
 
 # Load ecoregions and prepare them for spatial operations
 eco <- readRDS("data/eco_simplified.rds")
@@ -35,29 +39,31 @@ if (file.exists(eco_dissolved_path)) {
   tryCatch(saveRDS(eco_dissolved, eco_dissolved_path), error = function(e) NULL)
 }
 
-# pull out data from eastern temperate forests and northern forests
-s2_forests <- s2 %>%
-  filter(NA_L1KEY == "8  EASTERN TEMPERATE FORESTS" | NA_L1KEY == "5  NORTHERN FORESTS")
+# Load pre-computed species list and indexes (or compute at startup)
+if (file.exists("data/species_list.rds")) {
+  final_unique <- readRDS("data/species_list.rds")
+} else {
+  s2_forests <- s2 %>%
+    filter(NA_L1KEY == "8  EASTERN TEMPERATE FORESTS" | NA_L1KEY == "5  NORTHERN FORESTS")
+  s2_abun <- s2_forests %>% filter(grepl("Abundant", commonness))
+  final_unique <- sort(unique(s2_abun$Orig.Genus.species))
+}
 
-# pull out data that contains "abundant" in its commonness column
-s2_abun <- s2_forests %>%
-  filter(grepl("Abundant", commonness))
+# Load species index for O(1) lookup (or create from s2)
+if (file.exists("data/species_index.rds")) {
+  species_index <- readRDS("data/species_index.rds")
+} else {
+  species_index <- split(s2, s2$Orig.Genus.species)
+}
 
-# pull out species names from filtered data
-final_unique <- data.frame(unique(s2_abun$Orig.Genus.species))
-
-# Sort species names alphabetically
-final_unique <- final_unique %>%
-  arrange(unique.s2_abun.Orig.Genus.species.)
-
-# join s3 and s4 for to plot ecoregions
+# Load s7 and L3 data
 s7 <- readRDS("data/s7_merged.rds")
-
-# create df of just unique ecoregion/ species combinations for list attribiute
-L3_list <- data.frame(
-  Species = s7$USDA.Genus.species,
-  NA_L3KEY = s7$NA_L3KEY
-)
+if (file.exists("data/L3_index.rds")) {
+  L3_index <- readRDS("data/L3_index.rds")
+} else {
+  L3_list <- data.frame(Species = s7$USDA.Genus.species, NA_L3KEY = s7$NA_L3KEY)
+  L3_index <- split(L3_list, L3_list$NA_L3KEY)
+}
 
 
 ui <- fluidPage(
@@ -232,14 +238,24 @@ server <- function(input, output, session) {
   
   point <- reactiveVal(NULL)
   region <- reactiveVal(NULL)
-  zip_coord_cache <- list()  # Cache zip -> c(lon, lat) to avoid repeated API calls
+
+  # Persistent zip code cache (survives restarts)
+  zip_cache_path <- "data/zip_cache.rds"
+  if (file.exists(zip_cache_path)) {
+    zip_coord_cache <- readRDS(zip_cache_path)
+  } else {
+    zip_coord_cache <- list()
+  }
+  onSessionEnded(function() {
+    tryCatch(saveRDS(zip_coord_cache, zip_cache_path), error = function(e) NULL)
+  })
   
   # Populate species dropdown (now alphabetically sorted)
   observe({
     updateSelectizeInput(
       session,
       "selected_species",
-      choices = c("None" = "", as.character(final_unique[[1]])),
+      choices = c("None" = "", as.character(final_unique)),
       selected = '',
       server = TRUE
     )
@@ -376,21 +392,21 @@ observeEvent(input$go_zip, {
     region()
   })
   
-  # Reactive for selected species points
+  # Reactive for selected species points (O(1) lookup via species_index)
   filtered_species_data <- reactive({
     if(is.null(input$selected_species) || input$selected_species == "") {
       return(NULL)
     }
-    s2 %>%
-      filter(Orig.Genus.species == input$selected_species)
+    res <- species_index[[input$selected_species]]
+    if (is.null(res)) data.frame() else res
   })
   
-  # Reactive for species list table
+  # Reactive for species list table (O(1) lookup via L3_index)
   species_list_data <- reactive({
     req(region())
     region_name <- as.character(region()$NA_L3KEY[1])
-    L3_list %>%
-      filter(NA_L3KEY == region_name)
+    res <- L3_index[[region_name]]
+    if (is.null(res)) data.frame(Species = character(), NA_L3KEY = character()) else res
   })
   
   # -- OUTPUTS --
@@ -450,7 +466,7 @@ observeEvent(input$go_zip, {
     data
   }, colnames = FALSE)
   
-  # Map Updater Observer
+  # Map Updater Observer (incremental: only clear overlay groups, not base ecoregions)
   observe({
     region_data <- selected_ecoregion_data()
     species_data <- filtered_species_data()
@@ -460,34 +476,8 @@ observeEvent(input$go_zip, {
     proxy <- leafletProxy("map") %>%
       clearGroup("selected_region") %>%
       clearGroup("species_points") %>%
-      clearGroup("all_ecoregions") %>%
       clearMarkers() %>%
       clearControls()
-
-    # Re-add ecoregions: when one is selected, make them non-interactive so points are easy to click
-    proxy <- proxy %>%
-      addPolygons(
-        data = eco_dissolved,
-        layerId = ~NA_L3KEY,
-        color = "#666666",
-        weight = 1,
-        fillColor = "#e0e0e0",
-        fillOpacity = 0.2,
-        options = pathOptions(pane = "ecoregionsPane", interactive = !region_is_active),
-        highlightOptions = highlightOptions(
-          weight = 2,
-          color = "#666",
-          fillOpacity = 0.4,
-          bringToFront = TRUE
-        ),
-        label = ~NA_L3NAME,
-        labelOptions = labelOptions(
-          style = list("font-weight" = "normal", padding = "3px 8px"),
-          textsize = "12px",
-          direction = "auto"
-        ),
-        group = "all_ecoregions"
-      )
 
     show_legend <- FALSE
     legend_colors <- c()

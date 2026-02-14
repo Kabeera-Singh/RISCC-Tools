@@ -7,13 +7,38 @@ library(DT)
 library(maps)
 library(readr)
 
-plants_data <- read_csv("data/Final Regulated Plants by State June 2025 - MergedPlantsByState.csv", show_col_types = FALSE)
+# Load plants data (RDS preferred for speed; fallback to CSV)
+if (file.exists("data/plants_data.rds")) {
+  plants_data <- readRDS("data/plants_data.rds")
+} else {
+  plants_data <- read_csv("data/Final Regulated Plants by State June 2025 - MergedPlantsByState.csv", show_col_types = FALSE)
+}
 
+# Load pre-computed state polygons (avoids repeated maps::map() calls)
+if (file.exists("data/state_polygons.rds")) {
+  state_polygons <- readRDS("data/state_polygons.rds")
+} else {
+  state_polygons <- list()
+  for (state in tolower(state.name)) {
+    poly <- tryCatch(
+      maps::map("state", regions = state, plot = FALSE, fill = TRUE),
+      error = function(e) NULL
+    )
+    if (!is.null(poly) && length(poly$x) > 0) {
+      state_polygons[[state]] <- list(x = poly$x, y = poly$y, type = "polygon")
+    }
+  }
+  state_polygons[["puerto rico"]] <- list(x = -66.5, y = 18.2, type = "point")
+}
+
+# Vectorized state abbr -> name lookup
 state_map <- data.frame(
   StateName = c(state.name, "Puerto Rico"),
   StateAbbr = c(state.abb, "PR"),
   stringsAsFactors = FALSE
 )
+state_abbr_to_name <- setNames(state_map$StateName, state_map$StateAbbr)
+state_name_to_abbr <- setNames(state_map$StateAbbr, state_map$StateName)
 
 state_to_maps_name <- function(state_name) {
   x <- tolower(state_name)
@@ -183,8 +208,10 @@ server <- function(input, output, session) {
     df <- plants_data
 
     if (input$selected_state != "All") {
-      selected_abbr <- state_map$StateAbbr[state_map$StateName == input$selected_state]
-      df <- df %>% filter(State == selected_abbr)
+      selected_abbr <- state_name_to_abbr[input$selected_state]
+      if (!is.na(selected_abbr)) {
+        df <- df %>% filter(State == selected_abbr)
+      }
     }
 
     if (!is.null(input$selected_species) && input$selected_species != "All") {
@@ -248,57 +275,56 @@ server <- function(input, output, session) {
         pull(State) %>%
         unique()
 
-      all_lngs <- numeric(0)
-      all_lats <- numeric(0)
+      # Vectorized state lookup
+      state_names <- state_abbr_to_name[states_for_species]
+      state_names <- state_names[!is.na(state_names)]
 
-      for (abbr in states_for_species) {
-        state_name <- state_map$StateName[state_map$StateAbbr == abbr]
-        if (length(state_name) == 0) next
-
+      # Collect polygons and coords (no vector growing)
+      species_items <- lapply(state_names, function(state_name) {
         region_name <- state_to_maps_name(state_name)
-        
-        if (region_name == "puerto rico") {
-          all_lngs <- c(all_lngs, -66.5)
-          all_lats <- c(all_lats, 18.2)
-          leafletProxy("state_map") %>%
+        poly <- state_polygons[[region_name]]
+        if (is.null(poly)) return(NULL)
+        list(state_name = state_name, region_name = region_name, poly = poly)
+      })
+      species_items <- species_items[!sapply(species_items, is.null)]
+
+      proxy <- leafletProxy("state_map")
+      for (item in species_items) {
+        state_name <- item$state_name
+        poly <- item$poly
+        if (identical(poly$type, "point")) {
+          proxy <- proxy %>%
             addCircleMarkers(
-              lng = -66.5, lat = 18.2, radius = 15,
+              lng = poly$x, lat = poly$y, radius = 15,
               fillColor = "forestgreen", fillOpacity = 0.5,
               color = "darkgreen", weight = 2,
               label = paste0(state_name, " (Species Regulated)"), group = "species"
             )
-        } else if (!(region_name %in% c(state_to_maps_name(state.name), "alaska", "hawaii"))) {
-          next
         } else {
-          poly <- tryCatch(
-            maps::map("state", regions = region_name, plot = FALSE, fill = TRUE),
-            error = function(e) NULL
-          )
-
-          if (!is.null(poly) && length(poly$x) > 0) {
-            all_lngs <- c(all_lngs, poly$x)
-            all_lats <- c(all_lats, poly$y)
-            leafletProxy("state_map") %>%
-              addPolygons(
-                lng = poly$x, lat = poly$y,
-                fillColor = "forestgreen", fillOpacity = 0.5,
-                color = "darkgreen", weight = 1,
-                label = state_name, group = "species"
-              )
-          }
+          proxy <- proxy %>%
+            addPolygons(
+              lng = poly$x, lat = poly$y,
+              fillColor = "forestgreen", fillOpacity = 0.5,
+              color = "darkgreen", weight = 1,
+              label = state_name, group = "species"
+            )
         }
       }
 
-      if (length(all_lngs) > 0 && length(all_lats) > 0) {
-        lng_range <- range(all_lngs, na.rm = TRUE)
-        lat_range <- range(all_lats, na.rm = TRUE)
-        lng_pad <- max(diff(lng_range) * 0.1, 1)
-        lat_pad <- max(diff(lat_range) * 0.1, 1)
-        leafletProxy("state_map") %>%
-          fitBounds(
-            lng_range[1] - lng_pad, lat_range[1] - lat_pad,
-            lng_range[2] + lng_pad, lat_range[2] + lat_pad
-          )
+      if (length(species_items) > 0) {
+        all_lngs <- unlist(lapply(species_items, function(i) i$poly$x))
+        all_lats <- unlist(lapply(species_items, function(i) i$poly$y))
+        if (length(all_lngs) > 0 && length(all_lats) > 0) {
+          lng_range <- range(all_lngs, na.rm = TRUE)
+          lat_range <- range(all_lats, na.rm = TRUE)
+          lng_pad <- max(diff(lng_range) * 0.1, 1)
+          lat_pad <- max(diff(lat_range) * 0.1, 1)
+          proxy <- proxy %>%
+            fitBounds(
+              lng_range[1] - lng_pad, lat_range[1] - lat_pad,
+              lng_range[2] + lng_pad, lat_range[2] + lat_pad
+            )
+        }
       }
     }
 
@@ -331,12 +357,15 @@ server <- function(input, output, session) {
             color = "gold", weight = 4, label = "Hawaii"
           )
       } else {
-        selected_state_poly <- tryCatch(
-          maps::map("state", regions = region_name, plot = FALSE, fill = TRUE),
-          error = function(e) list(x = numeric(0), y = numeric(0))
-        )
+        selected_state_poly <- state_polygons[[region_name]]
+        if (is.null(selected_state_poly)) {
+          selected_state_poly <- tryCatch(
+            maps::map("state", regions = region_name, plot = FALSE, fill = TRUE),
+            error = function(e) list(x = numeric(0), y = numeric(0))
+          )
+        }
         
-        if (length(selected_state_poly$x) > 0) {
+        if (!is.null(selected_state_poly) && length(selected_state_poly$x) > 0) {
           leafletProxy("state_map") %>%
             addPolygons(
               lng = selected_state_poly$x, lat = selected_state_poly$y,

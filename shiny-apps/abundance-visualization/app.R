@@ -8,12 +8,12 @@ library(tidyr)
 library(DT)
 library(maps)
 library(httr)
-library(jsonlite)
 # Ensure rmarkdown is available for PDF download
 library(rmarkdown)
+library(readr)
 
 # Load appendix data and eco-regions
-s2 <- read.csv("data/appendixS2.csv")
+s2 <- read_csv("data/appendixS2.csv", show_col_types = FALSE)
 
 # Load ecoregions and prepare them for spatial operations
 eco <- readRDS("data/eco_simplified.rds")
@@ -209,6 +209,7 @@ server <- function(input, output, session) {
   
   point <- reactiveVal(NULL)
   region <- reactiveVal(NULL)
+  zip_coord_cache <- list()  # Cache zip -> c(lon, lat) to avoid repeated API calls
   
   # Populate species dropdown (now alphabetically sorted)
   observe({
@@ -250,44 +251,56 @@ observeEvent(input$go_zip, {
     return()
   }
   
-  # Use Nominatim API (OpenStreetMap)
-  url <- paste0("https://nominatim.openstreetmap.org/search?",
-                "postalcode=", input$zipcode,
-                "&country=US&format=json&limit=1")
-  
-  tryCatch({
-    response <- GET(url, user_agent("ShinyApp"))
-    
-    if (status_code(response) == 200) {
-      result <- content(response, "parsed")
-      
-      if (length(result) > 0) {
-        lon <- as.numeric(result[[1]]$lon)
-        lat <- as.numeric(result[[1]]$lat)
-        
-        # Create point and find ecoregion
-        pt <- st_sfc(st_point(c(lon, lat)), crs = 4326)
-        point(pt)
-        
-        region_found <- eco[st_intersects(eco, pt, sparse = FALSE), ]
-        
-        if (nrow(region_found) > 0) {
-          region(region_found)
-          showNotification(paste("Found coordinates:", round(lat, 4), ",", round(lon, 4)), 
-                         type = "message")
+  zip_key <- input$zipcode
+  # Check cache first to avoid repeated API calls
+  if (zip_key %in% names(zip_coord_cache)) {
+    cached <- zip_coord_cache[[zip_key]]
+    lon <- cached[1]
+    lat <- cached[2]
+    pt <- st_sfc(st_point(c(lon, lat)), crs = 4326)
+    point(pt)
+    region_found <- eco[st_intersects(eco, pt, sparse = FALSE), ]
+    if (nrow(region_found) > 0) {
+      region(region_found)
+      showNotification(paste("Found coordinates (cached):", round(lat, 4), ",", round(lon, 4)),
+                       type = "message")
+    } else {
+      region(NULL)
+      showNotification("No ecoregion found for this zip code.", type = "warning")
+    }
+  } else {
+    url <- paste0("https://nominatim.openstreetmap.org/search?",
+                  "postalcode=", input$zipcode,
+                  "&country=US&format=json&limit=1")
+    tryCatch({
+      response <- GET(url, user_agent("ShinyApp"))
+      if (status_code(response) == 200) {
+        result <- content(response, "parsed")
+        if (length(result) > 0) {
+          lon <- as.numeric(result[[1]]$lon)
+          lat <- as.numeric(result[[1]]$lat)
+          zip_coord_cache[[zip_key]] <- c(lon, lat)
+          pt <- st_sfc(st_point(c(lon, lat)), crs = 4326)
+          point(pt)
+          region_found <- eco[st_intersects(eco, pt, sparse = FALSE), ]
+          if (nrow(region_found) > 0) {
+            region(region_found)
+            showNotification(paste("Found coordinates:", round(lat, 4), ",", round(lon, 4)),
+                             type = "message")
+          } else {
+            region(NULL)
+            showNotification("No ecoregion found for this zip code.", type = "warning")
+          }
         } else {
-          region(NULL)
-          showNotification("No ecoregion found for this zip code.", type = "warning")
+          showNotification("Zip code not found. Please try another.", type = "error")
         }
       } else {
-        showNotification("Zip code not found. Please try another.", type = "error")
+        showNotification("Geocoding service unavailable. Please try again later.", type = "error")
       }
-    } else {
-      showNotification("Geocoding service unavailable. Please try again later.", type = "error")
-    }
-  }, error = function(e) {
-    showNotification(paste("Error geocoding zip code:", e$message), type = "error")
-  })
+    }, error = function(e) {
+      showNotification(paste("Error geocoding zip code:", e$message), type = "error")
+    })
+  }
 })
   
   # Observer for map clicks (ecoregion selection)
@@ -570,11 +583,15 @@ observeEvent(input$go_zip, {
   # PDF download
   output$download_pdf <- downloadHandler(
     filename = function() {
-      paste0("species_list_", Sys.Date(), ".pdf")
+      if (is.null(region())) {
+        paste0("no_ecoregion_selected_", Sys.Date(), ".txt")
+      } else {
+        paste0("species_list_", Sys.Date(), ".pdf")
+      }
     },
     content = function(file) {
       if(is.null(region())) {
-        writeLines(c("PDF generation skipped. No ecoregion selected."), file)
+        writeLines("PDF generation skipped. No ecoregion selected.", file)
       } else {
         tryCatch({
           tempReport <- file.path(tempdir(), "report.Rmd")

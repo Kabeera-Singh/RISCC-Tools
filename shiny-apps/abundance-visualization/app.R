@@ -8,13 +8,14 @@ library(tidyr)
 library(DT)
 library(maps)
 library(httr)
-# Ensure rmarkdown is available for PDF download
-library(rmarkdown)
 library(readr)
+# rmarkdown loaded on-demand for PDF download (avoids slow startup)
 
-# Load appendix data (RDS preferred for speed; fallback to CSV)
+# Load appendix data (RDS preferred for speed; fread faster than read_csv when CSV used)
 if (file.exists("data/appendixS2.rds")) {
   s2 <- readRDS("data/appendixS2.rds")
+} else if (requireNamespace("data.table", quietly = TRUE)) {
+  s2 <- as.data.frame(data.table::fread("data/appendixS2.csv"))
 } else {
   s2 <- read_csv("data/appendixS2.csv", show_col_types = FALSE)
 }
@@ -49,20 +50,20 @@ if (file.exists("data/species_list.rds")) {
   final_unique <- sort(unique(s2_abun$Orig.Genus.species))
 }
 
-# Load species index for O(1) lookup (or create from s2)
-if (file.exists("data/species_index.rds")) {
-  species_index <- readRDS("data/species_index.rds")
+# Species index: use precomputed if available; otherwise NULL (filter on-demand in reactive)
+species_index <- if (file.exists("data/species_index.rds")) {
+  readRDS("data/species_index.rds")
 } else {
-  species_index <- split(s2, s2$Orig.Genus.species)
+  NULL  # Avoid expensive split(s2, ...) at startup
 }
 
 # Load s7 and L3 data
 s7 <- readRDS("data/s7_merged.rds")
-if (file.exists("data/L3_index.rds")) {
-  L3_index <- readRDS("data/L3_index.rds")
+L3_list <- data.frame(Species = s7$USDA.Genus.species, NA_L3KEY = s7$NA_L3KEY)
+L3_index <- if (file.exists("data/L3_index.rds")) {
+  readRDS("data/L3_index.rds")
 } else {
-  L3_list <- data.frame(Species = s7$USDA.Genus.species, NA_L3KEY = s7$NA_L3KEY)
-  L3_index <- split(L3_list, L3_list$NA_L3KEY)
+  NULL  # Avoid split at startup; use filter in reactive
 }
 
 
@@ -392,21 +393,29 @@ observeEvent(input$go_zip, {
     region()
   })
   
-  # Reactive for selected species points (O(1) lookup via species_index)
+  # Reactive for selected species points (index lookup when precomputed, else filter)
   filtered_species_data <- reactive({
     if(is.null(input$selected_species) || input$selected_species == "") {
       return(NULL)
     }
-    res <- species_index[[input$selected_species]]
-    if (is.null(res)) data.frame() else res
+    if (!is.null(species_index)) {
+      res <- species_index[[input$selected_species]]
+      if (is.null(res)) data.frame() else res
+    } else {
+      s2 %>% filter(Orig.Genus.species == input$selected_species)
+    }
   })
   
-  # Reactive for species list table (O(1) lookup via L3_index)
+  # Reactive for species list table (index lookup when precomputed, else filter)
   species_list_data <- reactive({
     req(region())
     region_name <- as.character(region()$NA_L3KEY[1])
-    res <- L3_index[[region_name]]
-    if (is.null(res)) data.frame(Species = character(), NA_L3KEY = character()) else res
+    if (!is.null(L3_index)) {
+      res <- L3_index[[region_name]]
+      if (is.null(res)) data.frame(Species = character(), NA_L3KEY = character()) else res
+    } else {
+      L3_list %>% filter(NA_L3KEY == region_name)
+    }
   })
   
   # -- OUTPUTS --
@@ -652,6 +661,10 @@ observeEvent(input$go_zip, {
         writeLines("PDF generation skipped. No ecoregion selected.", file)
       } else {
         tryCatch({
+          if (!requireNamespace("rmarkdown", quietly = TRUE)) {
+            stop("rmarkdown package is required for PDF export")
+          }
+          library(rmarkdown)
           tempReport <- file.path(tempdir(), "report.Rmd")
           
           writeLines(c(

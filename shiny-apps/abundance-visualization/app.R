@@ -23,6 +23,15 @@ eco <- readRDS("data/eco_simplified.rds")
 eco <- eco %>%
   filter(st_geometry_type(.) %in% c("POLYGON", "MULTIPOLYGON"))
 
+# Dissolve ecoregion pieces across state boundaries.
+# The source layer appears to contain state-clipped pieces for each NA_L3KEY.
+# Dissolving removes internal seams so each ecoregion is a single (multi)polygon.
+eco <- tryCatch(sf::st_make_valid(eco), error = function(e) eco)
+eco_dissolved <- eco %>%
+  group_by(NA_L3KEY, NA_L3NAME) %>%
+  summarise(geometry = sf::st_union(geometry), .groups = "drop") %>%
+  filter(sf::st_geometry_type(.) %in% c("POLYGON", "MULTIPOLYGON"))
+
 # pull out data from eastern temperate forests and northern forests
 s2_forests <- s2 %>%
   filter(NA_L1KEY == "8  EASTERN TEMPERATE FORESTS" | NA_L1KEY == "5  NORTHERN FORESTS")
@@ -242,7 +251,7 @@ server <- function(input, output, session) {
     point(pt)
 
     # Find which ecoregion the point falls into
-    region_found <- eco[st_intersects(eco, pt, sparse = FALSE), ]
+    region_found <- eco_dissolved[sf::st_intersects(eco_dissolved, pt, sparse = FALSE), ]
 
     if (nrow(region_found) > 0) {
       region(region_found)
@@ -270,7 +279,7 @@ observeEvent(input$go_zip, {
     lat <- cached[2]
     pt <- st_sfc(st_point(c(lon, lat)), crs = 4326)
     point(pt)
-    region_found <- eco[st_intersects(eco, pt, sparse = FALSE), ]
+    region_found <- eco_dissolved[sf::st_intersects(eco_dissolved, pt, sparse = FALSE), ]
     if (nrow(region_found) > 0) {
       region(region_found)
       showNotification(paste("Found coordinates (cached):", round(lat, 4), ",", round(lon, 4)),
@@ -293,7 +302,7 @@ observeEvent(input$go_zip, {
           zip_coord_cache[[zip_key]] <- c(lon, lat)
           pt <- st_sfc(st_point(c(lon, lat)), crs = 4326)
           point(pt)
-          region_found <- eco[st_intersects(eco, pt, sparse = FALSE), ]
+          region_found <- eco_dissolved[sf::st_intersects(eco_dissolved, pt, sparse = FALSE), ]
           if (nrow(region_found) > 0) {
             region(region_found)
             showNotification(paste("Found coordinates:", round(lat, 4), ",", round(lon, 4)),
@@ -322,7 +331,7 @@ observeEvent(input$go_zip, {
     
     if (!is.null(click$id)) {
       # Find the clicked ecoregion by ID
-      region_found <- eco[eco$NA_L3KEY == click$id, ]
+      region_found <- eco_dissolved[eco_dissolved$NA_L3KEY == click$id, ]
       
       if (nrow(region_found) > 0) {
         region(region_found)
@@ -388,7 +397,7 @@ observeEvent(input$go_zip, {
     leaflet(options = leafletOptions(minZoom = 4,maxZoom = 20)) %>%
       addProviderTiles("CartoDB.Positron") %>%
       addPolygons(
-        data = eco,
+        data = eco_dissolved,
         layerId = ~NA_L3KEY,
         color = "#666666",
         weight = 1,

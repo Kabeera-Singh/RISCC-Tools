@@ -76,7 +76,11 @@ ui <- fluidPage(
           div(
       class = "info-card",
       h5(tags$i(class = "fas fa-info-circle"), "Tool information"),
-      p("This tool visualizes introduced plant occurrence and abundance (source Bradley et al. 2025 in Scholarworks) across the continental U.S.  Occurrence data are sourced from EDDMapS (https://www.eddmaps.org/), iMap invasives (https://www.imapinvasives.org/), and twelve other state and regional databases. All data points include information about qualitative abundance (e.g., high), percent cover (from 0-100%), and cover class (the average of a range of percent cover e.g., 3 is the mean of 1-5%). NAs indicate no information about abundance (we only know that the species is present). ‘Species present’ indicates that the species has been reported as present at either unknown or low abundance. ‘Species abundant’ indicates that the species has been reported as present with a qualitative abundance value of X, a reported percent cover >Y, or an average cover class >Z.
+      p("This tool visualizes introduced plant occurrence and abundance (source Bradley et al. 2025 in Scholarworks) across the continental U.S.  Occurrence data are sourced from ",
+        tags$a(href = "https://www.eddmaps.org/", "EDDMapS", target = "_blank"),
+        ", ",
+        tags$a(href = "https://www.imapinvasives.org/", "iMap Invasives", target = "_blank"),
+        ", and twelve other state and regional databases. All data points include information about qualitative abundance (e.g., high), percent cover (from 0-100%), and cover class (the average of a range of percent cover e.g., 3 is the mean of 1-5%). NAs indicate no information about abundance (we only know that the species is present). ‘Species present’ indicates that the species has been reported as present at either unknown or low abundance. ‘Species abundant’ indicates that the species has been reported as present with a qualitative abundance value of X, a reported percent cover >Y, or an average cover class >Z.
       "),
       p("To use the tool, select an ecoregion by clicking on the map, entering a zip code, or providing coordinates. Then choose a species from the dropdown to visualize its occurrence and abundance within the selected ecoregion. The map will update to show relevant data points, and the table below will list abundant species in that ecoregion. You can download the species list as a CSV or PDF for further analysis."
     ),),

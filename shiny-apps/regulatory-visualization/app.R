@@ -58,13 +58,13 @@ ui <- fluidPage(
       div(
         class = "info-card",
         h5(tags$i(class = "fas fa-info-circle"), " How to Use This Tool"),
-        p("This app allows you to filter by a particular state or species name to find the data you're looking for. The map will highlight your selections, and the table below will update."),
+        p("Choose a state from the dropdown to create a list of all regulated species in that state. Choose a species from the dropdown to create a list of all states where that species is regulated. The map will highlight your selections, and the table below will update."),
         p(
-          "Note: The data from this resource was compiled from the ",
-          tags$a(href = "https://www.nationalplantboard.org/state-law--regulation-summaries.html", "National Plant Board", target = "_blank"),
-          "or view the ",
-          tags$a(href = "https://docs.google.com/spreadsheets/d/1XdmtsDxd4A3fURZixemEsAvCmYQ8_XM9d10WezWCWlg/edit?gid=651617479#gid=651617479", "original source", target = "_blank"),
-          "data."
+          "Data sources: The data from this resource was compiled from the National Plant Board Website ",
+          tags$a(href = "https://nationalplantboard.org/regulated-plant-list/", "here", target = "_blank"),
+          ". Learn more about regulatory level definitions in the Reg.Level Definitions tab ",
+          tags$a(href = "https://docs.google.com/spreadsheets/d/1XdmtsDxd4A3fURZixemEsAvCmYQ8_XM9d10WezWCWlg/edit?usp=sharing", "here", target = "_blank"),
+          "."
         )
       ),
 
@@ -149,7 +149,14 @@ ui <- fluidPage(
     class = "app-footer",
     div(
       class = "footer-container",
-      p("Regulated Plant Database Viewer")
+      p("Regulated Plant Database Viewer"),
+      div(
+        class = "citation-section",
+        p(
+          strong("Recommended Citation: "),
+          "Singh, K., J. Salva, M. Fertakos, and B.A. Bradley. RISCC Tools: State-based regulated plant data viewer. URL: https://www.riscctools.org/regulatory-visualization/, access date."
+        )
+      )
     )
   )
 )
@@ -164,6 +171,11 @@ server <- function(input, output, session) {
   observeEvent(input$reset_btn, {
     updateSelectInput(session, "selected_state", selected = "All")
     updateSelectInput(session, "selected_species", selected = "All")
+    leafletProxy("state_map") %>%
+      clearShapes() %>%
+      clearMarkers() %>%
+      clearControls() %>%
+      setView(lng = -98.5795, lat = 39.8283, zoom = 4)
   })
 
   filtered_data <- reactive({
@@ -197,7 +209,7 @@ server <- function(input, output, session) {
           th('USDA Symbol', span(class="info-icon", '?', 
             span(class="tooltip-text", 'Official USDA PLANTS database symbol for the species'))),
           th('Native Status ', span(class="info-icon", '?', 
-            span(class="tooltip-text", 'Geographic origin: (N) = Native, (I) = Introduced/Invasive, (W) = Waif/Occasional. Format: Region(Status), e.g., L48(I) means introduced in lower 48 states')))
+            span(class="tooltip-text", 'Native Status is derived from the USDA PLANTS Database and is written in the format Region(Status). Regions: AK=Alaska, CAN=Canada, GL=Greenland, HI=Hawaii, L48=Lower 48 states, NA=North America (non-vascular plants and lichens only), NAV=Navassa Island, PB=Pacific Basin excluding Hawaii, PR=Puerto Rico, SPM=St. Pierre and Miquelon (France), VI=U.S. Virgin Islands. Status: (N)=Native, (I)=Introduced, (W)=Waif/Occasional. Question marks note probable status.')))
         )
       )
     ))
@@ -217,6 +229,7 @@ server <- function(input, output, session) {
   observe({
     leafletProxy("state_map") %>%
       clearShapes() %>%
+      clearMarkers() %>%
       clearControls()
 
     species_active <- (!is.null(input$selected_species) && input$selected_species != "All")
@@ -234,28 +247,57 @@ server <- function(input, output, session) {
         pull(State) %>%
         unique()
 
+      all_lngs <- numeric(0)
+      all_lats <- numeric(0)
+
       for (abbr in states_for_species) {
         state_name <- state_map$StateName[state_map$StateAbbr == abbr]
         if (length(state_name) == 0) next
 
         region_name <- state_to_maps_name(state_name)
         
-        if (!(region_name %in% c(state_to_maps_name(state.name), "alaska", "hawaii"))) next
-        
-        poly <- tryCatch(
-          maps::map("state", regions = region_name, plot = FALSE, fill = TRUE),
-          error = function(e) NULL
-        )
-
-        if (!is.null(poly) && length(poly$x) > 0) {
+        if (region_name == "puerto rico") {
+          all_lngs <- c(all_lngs, -66.5)
+          all_lats <- c(all_lats, 18.2)
           leafletProxy("state_map") %>%
-            addPolygons(
-              lng = poly$x, lat = poly$y,
+            addCircleMarkers(
+              lng = -66.5, lat = 18.2, radius = 15,
               fillColor = "forestgreen", fillOpacity = 0.5,
-              color = "darkgreen", weight = 1,
-              label = state_name, group = "species"
+              color = "darkgreen", weight = 2,
+              label = paste0(state_name, " (Species Regulated)"), group = "species"
             )
+        } else if (!(region_name %in% c(state_to_maps_name(state.name), "alaska", "hawaii"))) {
+          next
+        } else {
+          poly <- tryCatch(
+            maps::map("state", regions = region_name, plot = FALSE, fill = TRUE),
+            error = function(e) NULL
+          )
+
+          if (!is.null(poly) && length(poly$x) > 0) {
+            all_lngs <- c(all_lngs, poly$x)
+            all_lats <- c(all_lats, poly$y)
+            leafletProxy("state_map") %>%
+              addPolygons(
+                lng = poly$x, lat = poly$y,
+                fillColor = "forestgreen", fillOpacity = 0.5,
+                color = "darkgreen", weight = 1,
+                label = state_name, group = "species"
+              )
+          }
         }
+      }
+
+      if (length(all_lngs) > 0 && length(all_lats) > 0) {
+        lng_range <- range(all_lngs, na.rm = TRUE)
+        lat_range <- range(all_lats, na.rm = TRUE)
+        lng_pad <- max(diff(lng_range) * 0.1, 1)
+        lat_pad <- max(diff(lat_range) * 0.1, 1)
+        leafletProxy("state_map") %>%
+          fitBounds(
+            lng_range[1] - lng_pad, lat_range[1] - lat_pad,
+            lng_range[2] + lng_pad, lat_range[2] + lat_pad
+          )
       }
     }
 
@@ -336,14 +378,30 @@ server <- function(input, output, session) {
   })
 
   output$download_csv <- downloadHandler(
-    filename = function() paste0("plant_data_", Sys.Date(), ".csv"),
+    filename = function() {
+      if (input$selected_state != "All") {
+        paste0(gsub(" ", "_", input$selected_state), "_regulated_invasive_plants_", Sys.Date(), ".csv")
+      } else if (!is.null(input$selected_species) && input$selected_species != "All") {
+        paste0(gsub(" ", "_", input$selected_species), "_regulated_states_", Sys.Date(), ".csv")
+      } else {
+        paste0("plant_data_", Sys.Date(), ".csv")
+      }
+    },
     content = function(file) {
       write.csv(filtered_data(), file, row.names = FALSE)
     }
   )
 
   output$download_txt <- downloadHandler(
-    filename = function() paste0("plant_data_", Sys.Date(), ".txt"),
+    filename = function() {
+      if (input$selected_state != "All") {
+        paste0(gsub(" ", "_", input$selected_state), "_regulated_invasive_plants_", Sys.Date(), ".txt")
+      } else if (!is.null(input$selected_species) && input$selected_species != "All") {
+        paste0(gsub(" ", "_", input$selected_species), "_regulated_states_", Sys.Date(), ".txt")
+      } else {
+        paste0("plant_data_", Sys.Date(), ".txt")
+      }
+    },
     content = function(file) {
       write.table(filtered_data(), file, sep = "\t", row.names = FALSE, quote = FALSE)
     }

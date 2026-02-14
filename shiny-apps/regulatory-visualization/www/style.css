@@ -148,6 +148,18 @@ body {
   font-size: 14px;
 }
 
+.citation-section {
+  margin-top: 15px;
+  padding-top: 15px;
+  border-top: 1px solid rgba(255, 255, 255, 0.3);
+  font-size: 12px;
+  font-style: italic;
+}
+
+.citation-section p {
+  margin: 0;
+}
+
 .info-icon {
   position: relative;
   display: inline-block;
@@ -238,6 +250,36 @@ th:nth-last-child(-n+2) .info-icon .tooltip-text::after {
 }
 
 @media (max-width: 768px) {
+  .main-layout {
+    flex-direction: column;
+  }
+  
+  .sidebar,
+  .main-panel {
+    flex: 1 1 100%;
+    min-width: 100%;
+  }
+  
+  .main-container {
+    padding: 15px;
+  }
+  
+  .results-body {
+    overflow-x: auto;
+  }
+  
+  .dataTables_wrapper {
+    overflow-x: auto;
+  }
+  
+  .app-header {
+    padding: 12px 15px;
+  }
+  
+  .header-container h1 {
+    font-size: 18px;
+  }
+  
   .info-icon {
     width: 16px;
     height: 16px;

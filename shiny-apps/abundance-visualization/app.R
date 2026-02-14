@@ -19,18 +19,21 @@ s2 <- read_csv("data/appendixS2.csv", show_col_types = FALSE)
 eco <- readRDS("data/eco_simplified.rds")
 
 # Filter out GEOMETRYCOLLECTION types that leaflet can't handle
-# Keep only POLYGON and MULTIPOLYGON geometries
 eco <- eco %>%
   filter(st_geometry_type(.) %in% c("POLYGON", "MULTIPOLYGON"))
 
-# Dissolve ecoregion pieces across state boundaries.
-# The source layer appears to contain state-clipped pieces for each NA_L3KEY.
-# Dissolving removes internal seams so each ecoregion is a single (multi)polygon.
-eco <- tryCatch(sf::st_make_valid(eco), error = function(e) eco)
-eco_dissolved <- eco %>%
-  group_by(NA_L3KEY, NA_L3NAME) %>%
-  summarise(geometry = sf::st_union(geometry), .groups = "drop") %>%
-  filter(sf::st_geometry_type(.) %in% c("POLYGON", "MULTIPOLYGON"))
+# Dissolve ecoregion pieces across state boundaries (cached for faster loading)
+eco_dissolved_path <- "data/eco_dissolved.rds"
+if (file.exists(eco_dissolved_path)) {
+  eco_dissolved <- readRDS(eco_dissolved_path)
+} else {
+  eco <- tryCatch(sf::st_make_valid(eco), error = function(e) eco)
+  eco_dissolved <- eco %>%
+    group_by(NA_L3KEY, NA_L3NAME) %>%
+    summarise(geometry = sf::st_union(geometry), .groups = "drop") %>%
+    filter(sf::st_geometry_type(.) %in% c("POLYGON", "MULTIPOLYGON"))
+  tryCatch(saveRDS(eco_dissolved, eco_dissolved_path), error = function(e) NULL)
+}
 
 # pull out data from eastern temperate forests and northern forests
 s2_forests <- s2 %>%
@@ -449,21 +452,46 @@ observeEvent(input$go_zip, {
   
   # Map Updater Observer
   observe({
+    region_data <- selected_ecoregion_data()
+    species_data <- filtered_species_data()
+    region_is_active <- !is.null(region_data)
+    species_is_active <- !is.null(species_data) && nrow(species_data) > 0
+
     proxy <- leafletProxy("map") %>%
       clearGroup("selected_region") %>%
       clearGroup("species_points") %>%
+      clearGroup("all_ecoregions") %>%
       clearMarkers() %>%
       clearControls()
-    
+
+    # Re-add ecoregions: when one is selected, make them non-interactive so points are easy to click
+    proxy <- proxy %>%
+      addPolygons(
+        data = eco_dissolved,
+        layerId = ~NA_L3KEY,
+        color = "#666666",
+        weight = 1,
+        fillColor = "#e0e0e0",
+        fillOpacity = 0.2,
+        options = pathOptions(pane = "ecoregionsPane", interactive = !region_is_active),
+        highlightOptions = highlightOptions(
+          weight = 2,
+          color = "#666",
+          fillOpacity = 0.4,
+          bringToFront = TRUE
+        ),
+        label = ~NA_L3NAME,
+        labelOptions = labelOptions(
+          style = list("font-weight" = "normal", padding = "3px 8px"),
+          textsize = "12px",
+          direction = "auto"
+        ),
+        group = "all_ecoregions"
+      )
+
     show_legend <- FALSE
     legend_colors <- c()
     legend_labels <- c()
-    
-    region_data <- selected_ecoregion_data()
-    species_data <- filtered_species_data()
-    
-    region_is_active <- !is.null(region_data)
-    species_is_active <- !is.null(species_data) && nrow(species_data) > 0
 
     # 1. Add Selected Ecoregion
     if (region_is_active) {
@@ -516,7 +544,7 @@ observeEvent(input$go_zip, {
               "<strong> Year: </strong>", Year, "<br>",
               "<strong> Type: </strong> Presence Only", "<br>"
             ),
-            radius = 3,
+            radius = 8,
             color = "#FF0000",
             options = pathOptions(pane = "speciesPointsPane"),
             stroke = FALSE,
@@ -543,7 +571,7 @@ observeEvent(input$go_zip, {
               "<strong> Percent Cover: </strong>", ifelse(is.na(PctCov), "NA", PctCov), "<br>",
               "<strong> Cover Class: </strong>", ifelse(is.na(AvgCovClass), "NA", AvgCovClass), "<br>"
             ),
-            radius = 3,
+            radius = 8,
             color = "#00CC00",
             options = pathOptions(pane = "speciesPointsPane"),
             stroke = FALSE,

@@ -61,7 +61,7 @@ ui <- fluidPage(
         p("Choose a state from the dropdown to create a list of all regulated species in that state. Choose a species from the dropdown to create a list of all states where that species is regulated. The map will highlight your selections, and the table below will update."),
         p(
           "Data sources: The data from this resource was compiled from the National Plant Board Website ",
-          tags$a(href = "https://nationalplantboard.org/regulated-plant-list/", "here", target = "_blank"),
+          tags$a(href = "https://www.nationalplantboard.org/state-law--regulation-summaries.html", "here", target = "_blank"),
           ". Learn more about regulatory level definitions in the Reg.Level Definitions tab ",
           tags$a(href = "https://docs.google.com/spreadsheets/d/1XdmtsDxd4A3fURZixemEsAvCmYQ8_XM9d10WezWCWlg/edit?usp=sharing", "here", target = "_blank"),
           "."

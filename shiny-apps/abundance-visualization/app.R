@@ -396,6 +396,10 @@ observeEvent(input$go_zip, {
   output$map <- renderLeaflet({
     leaflet(options = leafletOptions(minZoom = 4,maxZoom = 20)) %>%
       addProviderTiles("CartoDB.Positron") %>%
+      # Panes ensure points stay clickable above polygons
+      addMapPane("ecoregionsPane", zIndex = 410) %>%
+      addMapPane("selectedEcoregionPane", zIndex = 415) %>%
+      addMapPane("speciesPointsPane", zIndex = 420) %>%
       addPolygons(
         data = eco_dissolved,
         layerId = ~NA_L3KEY,
@@ -403,6 +407,7 @@ observeEvent(input$go_zip, {
         weight = 1,
         fillColor = "#e0e0e0",
         fillOpacity = 0.2,
+        options = pathOptions(pane = "ecoregionsPane"),
         highlightOptions = highlightOptions(
           weight = 2,
           color = "#666",
@@ -480,6 +485,7 @@ observeEvent(input$go_zip, {
           weight = 3,
           fillColor = "#007BFF",
           fillOpacity = 0.4,
+          options = pathOptions(pane = "selectedEcoregionPane"),
           popup = ~ paste("Ecoregion:", NA_L3NAME),
           group = "selected_region"
         )
@@ -512,6 +518,7 @@ observeEvent(input$go_zip, {
             ),
             radius = 3,
             color = "#FF0000",
+            options = pathOptions(pane = "speciesPointsPane"),
             stroke = FALSE,
             fillOpacity = 0.6,
             group = "species_points"
@@ -538,6 +545,7 @@ observeEvent(input$go_zip, {
             ),
             radius = 3,
             color = "#00CC00",
+            options = pathOptions(pane = "speciesPointsPane"),
             stroke = FALSE,
             fillOpacity = 0.6,
             group = "species_points"

@@ -76,6 +76,10 @@ ui <- fluidPage(
           div(
       class = "info-card",
       h5(tags$i(class = "fas fa-info-circle"), "Tool information"),
+      div(
+        class = "abundant-definition",
+        p(strong("What is an abundant species? "), "Species abundant indicates that the species has been reported as present with a qualitative abundance value, a reported percent cover above threshold, or an average cover class above threshold.")
+      ),
       p("This tool visualizes introduced plant occurrence and abundance (source Bradley et al. 2025 in Scholarworks) across the continental U.S.  Occurrence data are sourced from ",
         tags$a(href = "https://www.eddmaps.org/", "EDDMapS", target = "_blank"),
         ", ",
@@ -198,7 +202,14 @@ ui <- fluidPage(
   # 3. App Footer
   tags$footer(class = "app-footer",
               div(class = "footer-container",
-                  p("Abundance Mockup")
+                  p("Plant Abundance & Ecoregion Viewer"),
+                  div(
+                    class = "citation-section",
+                    p(
+                      strong("Recommended Citation: "),
+                      "Singh, K., J. Salva, M. Fertakos, and B.A. Bradley. RISCC Tools: Plant abundance and ecoregion viewer. URL: https://www.riscctools.org/abundance-visualization/, access date."
+                    )
+                  )
               )
   )
 )
@@ -566,10 +577,21 @@ observeEvent(input$go_zip, {
     }
   })
   
+  # Helper to sanitize ecoregion name for filename
+  sanitize_filename <- function(name) {
+    x <- gsub("[^A-Za-z0-9_-]", "_", name)
+    gsub("_+", "_", x)
+  }
+
   # CSV download
   output$download_csv <- downloadHandler(
     filename = function() {
-      paste0("species_list_", Sys.Date(), ".csv")
+      if (is.null(region())) {
+        paste0("species_list_", Sys.Date(), ".csv")
+      } else {
+        region_name <- sanitize_filename(as.character(region()$NA_L3NAME[1]))
+        paste0(region_name, "_abundant_species_", Sys.Date(), ".csv")
+      }
     },
     content = function(file) {
       if(is.null(region())) {
@@ -586,7 +608,8 @@ observeEvent(input$go_zip, {
       if (is.null(region())) {
         paste0("no_ecoregion_selected_", Sys.Date(), ".txt")
       } else {
-        paste0("species_list_", Sys.Date(), ".pdf")
+        region_name <- sanitize_filename(as.character(region()$NA_L3NAME[1]))
+        paste0(region_name, "_abundant_species_", Sys.Date(), ".pdf")
       }
     },
     content = function(file) {

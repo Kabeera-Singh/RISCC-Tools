@@ -3,6 +3,11 @@
 @import url("/www/css/shared/components.css");
 @import url("/www/css/shared/utilities.css");
 
+.container-fluid {
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+}
+
 .app-header h1 {
   margin: 0;
   font-size: 2rem;

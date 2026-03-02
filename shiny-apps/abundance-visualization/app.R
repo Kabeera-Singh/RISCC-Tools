@@ -182,7 +182,7 @@ ui <- fluidPage(
                                          choices = c("Click on Map" = "click",
                                                    "Zip Code" = "zip",
                                                    "Coordinates" = "coords"),
-                                         selected = "click")
+                                         selected = "zip")
                           )
                       ),
                       
@@ -252,7 +252,7 @@ ui <- fluidPage(
                         id = "map-loading-overlay",
                         class = "map-loading-overlay",
                         div(class = "map-skeleton-box"),
-                        tags$span("Loading ecoregion layer...")
+                        tags$span("Loading map...")
                       ),
                       leafletOutput("map", height = 450)
                   )
@@ -489,6 +489,33 @@ observeEvent(input$go_zip, {
   
   # Base map first, then ecoregions added via proxy for faster first paint.
   ecoregions_layer_drawn <- reactiveVal(FALSE)
+  draw_ecoregions_layer <- function() {
+    leafletProxy("map") %>%
+      clearGroup("all_ecoregions") %>%
+      addPolygons(
+        data = eco_display,
+        layerId = ~NA_L3KEY,
+        color = "#666666",
+        weight = 1,
+        fillColor = "#e0e0e0",
+        fillOpacity = 0.2,
+        options = pathOptions(pane = "ecoregionsPane"),
+        highlightOptions = highlightOptions(
+          weight = 2,
+          color = "#666",
+          fillOpacity = 0.4,
+          bringToFront = TRUE
+        ),
+        group = "all_ecoregions"
+      )
+    ecoregions_layer_drawn(TRUE)
+  }
+
+  clear_ecoregions_layer <- function() {
+    leafletProxy("map") %>% clearGroup("all_ecoregions")
+    ecoregions_layer_drawn(FALSE)
+  }
+
   first_map_render_logged <- FALSE
   output$map <- renderLeaflet({
     map_render_t0 <- proc.time()[["elapsed"]]
@@ -512,32 +539,25 @@ observeEvent(input$go_zip, {
   })
 
   observe({
-    if (ecoregions_layer_drawn()) {
-      return()
-    }
     session$onFlushed(function() {
-      leafletProxy("map") %>%
-        clearGroup("all_ecoregions") %>%
-        addPolygons(
-          data = eco_display,
-          layerId = ~NA_L3KEY,
-          color = "#666666",
-          weight = 1,
-          fillColor = "#e0e0e0",
-          fillOpacity = 0.2,
-          options = pathOptions(pane = "ecoregionsPane"),
-          highlightOptions = highlightOptions(
-            weight = 2,
-            color = "#666",
-            fillOpacity = 0.4,
-            bringToFront = TRUE
-          ),
-          group = "all_ecoregions"
-        )
-      ecoregions_layer_drawn(TRUE)
+      if (identical(input$input_method, "click")) {
+        draw_ecoregions_layer()
+      } else {
+        clear_ecoregions_layer()
+      }
       shinyjs::hide("map-loading-overlay")
     }, once = TRUE)
   })
+
+  observeEvent(input$input_method, {
+    if (identical(input$input_method, "click")) {
+      if (!ecoregions_layer_drawn()) {
+        draw_ecoregions_layer()
+      }
+    } else if (ecoregions_layer_drawn()) {
+      clear_ecoregions_layer()
+    }
+  }, ignoreInit = TRUE)
   
   # Dynamic Results Card Title
   output$results_title <- renderUI({

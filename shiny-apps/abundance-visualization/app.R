@@ -46,33 +46,35 @@ get_s7_data <- local({
   }
 })
 
-# Load ecoregions and prepare them for spatial operations
-eco <- readRDS("data/eco_simplified.rds")
-
-# Filter out GEOMETRYCOLLECTION types that leaflet can't handle
-eco <- eco %>%
-  filter(st_geometry_type(.) %in% c("POLYGON", "MULTIPOLYGON"))
-
-# Dissolve ecoregion pieces across state boundaries (cached for faster loading)
-eco_dissolved_path <- "data/eco_dissolved.rds"
-if (file.exists(eco_dissolved_path)) {
-  eco_dissolved <- readRDS(eco_dissolved_path)
-} else {
-  eco <- tryCatch(sf::st_make_valid(eco), error = function(e) eco)
-  eco_dissolved <- eco %>%
-    group_by(NA_L3KEY, NA_L3NAME) %>%
-    summarise(geometry = sf::st_union(geometry), .groups = "drop") %>%
-    filter(sf::st_geometry_type(.) %in% c("POLYGON", "MULTIPOLYGON"))
-  tryCatch(saveRDS(eco_dissolved, eco_dissolved_path), error = function(e) NULL)
+# Require precomputed geometry caches to prevent expensive runtime sf dissolve.
+required_cache_files <- c(
+  "data/eco_dissolved.rds",
+  "data/eco_dissolved_light.rds"
+)
+missing_cache_files <- required_cache_files[!file.exists(required_cache_files)]
+if (length(missing_cache_files) > 0) {
+  stop(
+    paste0(
+      "Missing required abundance geometry cache files:\n- ",
+      paste(missing_cache_files, collapse = "\n- "),
+      "\n\nRun scripts/preprocess_data.R before starting the app."
+    )
+  )
 }
-startup_checkpoint("Loaded dissolved ecoregions", startup_t0)
+startup_checkpoint("Validated geometry cache artifacts", startup_t0)
+
+get_eco_query_data <- local({
+  eco_cache <- NULL
+  function() {
+    if (is.null(eco_cache)) {
+      eco_cache <<- readRDS("data/eco_dissolved.rds")
+    }
+    eco_cache
+  }
+})
 
 # Use lightweight geometry for initial map draw when available
-eco_display <- if (file.exists("data/eco_dissolved_light.rds")) {
-  readRDS("data/eco_dissolved_light.rds")
-} else {
-  eco_dissolved
-}
+eco_display <- readRDS("data/eco_dissolved_light.rds")
 startup_checkpoint("Loaded display geometry", startup_t0)
 
 # Load pre-computed species list and indexes (or compute at startup)
@@ -331,7 +333,8 @@ server <- function(input, output, session) {
     point(pt)
 
     # Find which ecoregion the point falls into
-    region_found <- eco_dissolved[sf::st_intersects(eco_dissolved, pt, sparse = FALSE), ]
+    eco_query <- get_eco_query_data()
+    region_found <- eco_query[sf::st_intersects(eco_query, pt, sparse = FALSE), ]
 
     if (nrow(region_found) > 0) {
       region(region_found)
@@ -359,7 +362,8 @@ observeEvent(input$go_zip, {
     lat <- cached[2]
     pt <- st_sfc(st_point(c(lon, lat)), crs = 4326)
     point(pt)
-    region_found <- eco_dissolved[sf::st_intersects(eco_dissolved, pt, sparse = FALSE), ]
+    eco_query <- get_eco_query_data()
+    region_found <- eco_query[sf::st_intersects(eco_query, pt, sparse = FALSE), ]
     if (nrow(region_found) > 0) {
       region(region_found)
       showNotification(paste("Found coordinates (cached):", round(lat, 4), ",", round(lon, 4)),
@@ -382,7 +386,8 @@ observeEvent(input$go_zip, {
           zip_coord_cache[[zip_key]] <- c(lon, lat)
           pt <- st_sfc(st_point(c(lon, lat)), crs = 4326)
           point(pt)
-          region_found <- eco_dissolved[sf::st_intersects(eco_dissolved, pt, sparse = FALSE), ]
+          eco_query <- get_eco_query_data()
+          region_found <- eco_query[sf::st_intersects(eco_query, pt, sparse = FALSE), ]
           if (nrow(region_found) > 0) {
             region(region_found)
             showNotification(paste("Found coordinates:", round(lat, 4), ",", round(lon, 4)),
@@ -411,7 +416,8 @@ observeEvent(input$go_zip, {
     
     if (!is.null(click$id)) {
       # Find the clicked ecoregion by ID
-      region_found <- eco_dissolved[eco_dissolved$NA_L3KEY == click$id, ]
+      eco_query <- get_eco_query_data()
+      region_found <- eco_query[eco_query$NA_L3KEY == click$id, ]
       
       if (nrow(region_found) > 0) {
         region(region_found)

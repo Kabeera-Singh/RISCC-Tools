@@ -128,7 +128,7 @@ ui <- fluidPage(
               )
             ),
             actionButton("reset_btn", "Reset Filters",
-              icon = icon("refresh"), class = "btn-custom"
+              icon = icon("refresh"), class = "btn-reset"
             ),
             hr(),
             div(
@@ -159,11 +159,11 @@ ui <- fluidPage(
             DTOutput("filtered_table"),
             hr(),
             div(
-              class = "download-buttons",
+              class = "download-row",
               downloadButton("download_csv", "Download CSV", 
-                class = "btn-custom-small", icon = icon("file-csv")),
+                class = "btn-download", icon = icon("file-csv")),
               downloadButton("download_txt", "Download TXT", 
-                class = "btn-custom-small", icon = icon("file-lines"))
+                class = "btn-download", icon = icon("file-lines"))
             )
           )
         )

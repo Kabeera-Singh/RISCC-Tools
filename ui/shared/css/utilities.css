@@ -1,0 +1,22 @@
+.u-full-width { width: 100%; }
+.u-mb-0 { margin-bottom: 0 !important; }
+.u-mb-1 { margin-bottom: 0.5rem !important; }
+.u-mb-2 { margin-bottom: 1rem !important; }
+.u-mb-3 { margin-bottom: 1.5rem !important; }
+
+.u-flex { display: flex; }
+.u-flex-wrap { flex-wrap: wrap; }
+.u-gap-1 { gap: 0.5rem; }
+.u-gap-2 { gap: 1rem; }
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}

@@ -55,14 +55,13 @@ COPY nginx/conf.d/default.conf /etc/nginx/nginx.conf
 
 # Copy HTML files
 COPY nginx/html/ /usr/share/nginx/html/
+COPY ui/shared/css/ /usr/share/nginx/html/www/css/shared/
 
 # Copy Shiny apps
 COPY shiny-apps/abundance-visualization/ /srv/shiny-server/abundance-visualization/
 COPY shiny-apps/regulatory-visualization/ /srv/shiny-server/regulatory-visualization/
-
-# Copy the shared colors CSS file to both apps
-COPY nginx/html/www/css/shared-colors.css /srv/shiny-server/abundance-visualization/www/shared-colors.css
-COPY nginx/html/www/css/shared-colors.css /srv/shiny-server/regulatory-visualization/www/shared-colors.css
+COPY ui/shared/css/ /srv/shiny-server/abundance-visualization/www/css/shared/
+COPY ui/shared/css/ /srv/shiny-server/regulatory-visualization/www/css/shared/
 
 # Create supervisor configuration
 RUN mkdir -p /var/log/supervisor

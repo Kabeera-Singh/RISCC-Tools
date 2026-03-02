@@ -1,0 +1,112 @@
+.home-btn {
+  background: rgba(255, 255, 255, 0.15);
+  color: var(--text-white);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 8px;
+  padding: 0.65rem 1rem;
+  text-decoration: none;
+  font-weight: 600;
+  transition: background-color 0.2s ease, transform 0.2s ease;
+}
+
+.home-btn:hover,
+.home-btn:focus-visible {
+  background: rgba(255, 255, 255, 0.3);
+  color: var(--text-white);
+  transform: translateY(-1px);
+}
+
+.filter-card,
+.results-card,
+.map-card,
+.info-card {
+  background: var(--bg-primary);
+  border: 1px solid var(--border-light);
+  border-radius: 12px;
+  box-shadow: 0 2px 10px var(--shadow-light);
+  overflow: hidden;
+}
+
+.info-card {
+  padding: 1.2rem;
+  margin-bottom: 1.5rem;
+}
+
+.filter-header,
+.results-header,
+.map-header {
+  background: linear-gradient(135deg, var(--primary-red), var(--primary-red-light));
+  color: var(--text-white);
+  padding: 1rem 1.25rem;
+}
+
+.filter-header h5,
+.results-header h5,
+.map-header h5 {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.filter-body,
+.results-body,
+.map-body {
+  padding: 1rem 1.25rem;
+}
+
+.btn-primary,
+.btn-secondary,
+.btn-reset,
+.btn-download {
+  border: none;
+  border-radius: 8px;
+  color: var(--text-white) !important;
+  font-weight: 600;
+  padding: 0.65rem 0.95rem;
+  cursor: pointer;
+  transition: background-color 0.2s ease, transform 0.2s ease;
+}
+
+.btn-primary,
+.btn-reset,
+.btn-download {
+  background: linear-gradient(135deg, var(--primary-red), var(--primary-red-dark));
+}
+
+.btn-secondary {
+  background: var(--primary-red-light);
+}
+
+.btn-primary:hover,
+.btn-secondary:hover,
+.btn-reset:hover,
+.btn-download:hover,
+.btn-primary:focus-visible,
+.btn-secondary:focus-visible,
+.btn-reset:focus-visible,
+.btn-download:focus-visible {
+  background: var(--primary-red-dark);
+  transform: translateY(-1px);
+}
+
+.loading-skeleton {
+  position: relative;
+  overflow: hidden;
+}
+
+.loading-skeleton::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(255, 255, 255, 0.55) 50%,
+    rgba(255, 255, 255, 0) 100%
+  );
+  animation: skeleton-sweep 1.4s infinite;
+}
+
+@keyframes skeleton-sweep {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(100%); }
+}

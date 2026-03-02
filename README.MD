@@ -37,7 +37,7 @@ cd ngix-RISCC-app
 ## Adding New Apps
 
 ### 1. Create App Directory
-Create a folder in `shiny_apps/` for your new app (e.g., `shiny_apps/my-new-app/`)
+Create a folder in `shiny-apps/` for your new app (e.g., `shiny-apps/my-new-app/`).
 
 ### 2. Add App Files
 - Place your Shiny files (`app.R`, `ui.R`, `server.R`) in the new directory
@@ -46,23 +46,32 @@ Create a folder in `shiny_apps/` for your new app (e.g., `shiny_apps/my-new-app/
 
 ### 3. Update Configuration Files
 
-**In VS Code, search for `plant-selection` and update these files:**
+**In VS Code, search for an existing app path and update these files:**
 
 **Dockerfile** - Add this line:
 ```dockerfile
 COPY shiny-apps/YOUR_APP_NAME/ /srv/shiny-server/YOUR_APP_NAME/
 ```
 
-**nginx/conf.d/default.conf** - Copy the `plant-selection` location block and rename:
+**nginx/conf.d/default.conf** - Copy an existing app location block and rename:
 ```nginx
 # Location for YOUR_APP_NAME
 location /YOUR_APP_NAME/ {
-    proxy_pass http://shiny:3838/YOUR_APP_NAME/;
+    proxy_pass http://shiny-server/YOUR_APP_NAME/;
     # ... rest of proxy settings
 }
 ```
 
-**nginx/index.html** - Copy `plant-selection`'s href links and app-block section, then rename to your app
+**nginx/html/index.html** - Copy an existing app href + card block, then rename to your app.
+
+### Shared UI CSS
+
+- Shared design tokens/layout/components live in `ui/shared/css/`.
+- Docker copies these into:
+  - `/usr/share/nginx/html/www/css/shared/` (homepage)
+  - `/srv/shiny-server/abundance-visualization/www/css/shared/`
+  - `/srv/shiny-server/regulatory-visualization/www/css/shared/`
+- App styles should import shared layers first, then app-specific overrides.
 
 ### 4. Add R Packages (if needed)
 Add required packages to the R package installation section in the Dockerfile.

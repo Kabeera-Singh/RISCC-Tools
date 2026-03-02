@@ -5,8 +5,6 @@ library(shinyjs)
 library(leaflet)
 library(dplyr)
 library(tidyr)
-library(DT)
-library(maps)
 library(httr)
 library(readr)
 # rmarkdown loaded on-demand for PDF download (avoids slow startup)
@@ -152,14 +150,17 @@ ui <- fluidPage(
         class = "abundant-definition",
         p(strong("What is an abundant species? "), "Species abundant indicates that the species has been reported as present with a qualitative abundance value, a reported percent cover above threshold, or an average cover class above threshold.")
       ),
-      p("This tool visualizes introduced plant occurrence and abundance (source Bradley et al. 2025 in Scholarworks) across the continental U.S.  Occurrence data are sourced from ",
-        tags$a(href = "https://www.eddmaps.org/", "EDDMapS", target = "_blank"),
-        ", ",
-        tags$a(href = "https://www.imapinvasives.org/", "iMap Invasives", target = "_blank"),
-        ", and twelve other state and regional databases. All data points include information about qualitative abundance (e.g., high), percent cover (from 0-100%), and cover class (the average of a range of percent cover e.g., 3 is the mean of 1-5%). NAs indicate no information about abundance (we only know that the species is present). ‘Species present’ indicates that the species has been reported as present at either unknown or low abundance. ‘Species abundant’ indicates that the species has been reported as present with a qualitative abundance value of X, a reported percent cover >Y, or an average cover class >Z.
-      "),
-      p("To use the tool, select an ecoregion by clicking on the map, entering a zip code, or providing coordinates. Then choose a species from the dropdown to visualize its occurrence and abundance within the selected ecoregion. The map will update to show relevant data points, and the table below will list abundant species in that ecoregion. You can download the species list as a CSV or PDF for further analysis."
-    ),),
+      tags$details(
+        tags$summary("Show full tool description"),
+        p("This tool visualizes introduced plant occurrence and abundance (source Bradley et al. 2025 in Scholarworks) across the continental U.S. Occurrence data are sourced from ",
+          tags$a(href = "https://www.eddmaps.org/", "EDDMapS", target = "_blank"),
+          ", ",
+          tags$a(href = "https://www.imapinvasives.org/", "iMap Invasives", target = "_blank"),
+          ", and twelve other state and regional databases. All data points include information about qualitative abundance (e.g., high), percent cover (from 0-100%), and cover class (the average of a range of percent cover e.g., 3 is the mean of 1-5%). NAs indicate no information about abundance (we only know that the species is present). ‘Species present’ indicates that the species has been reported as present at either unknown or low abundance. ‘Species abundant’ indicates that the species has been reported as present with a qualitative abundance value of X, a reported percent cover >Y, or an average cover class >Z."
+        ),
+        p("To use the tool, select an ecoregion by clicking on the map, entering a zip code, or providing coordinates. Then choose a species from the dropdown to visualize its occurrence and abundance within the selected ecoregion. The map updates to show relevant data points, and the table below lists abundant species in that ecoregion. You can download the species list as a CSV or PDF for further analysis.")
+      )
+    ),
       # Main layout with Sidebar and Main Panel
       div(class = "main-layout",
           
@@ -194,7 +195,7 @@ ui <- fluidPage(
                             numericInput("lat", "Latitude", value = 42, step = 0.1, width = "100%"),
                             actionButton("go", "Find Ecoregion", 
                                        icon = icon("search"), 
-                                       class = "btn-custom-small", 
+                                       class = "btn-primary", 
                                        style = "margin-top: 5px; margin-bottom: 10px;")
                         )
                       ),
@@ -207,7 +208,7 @@ ui <- fluidPage(
                                     placeholder = "e.g., 10001", width = "100%"),
                             actionButton("go_zip", "Find Ecoregion", 
                                        icon = icon("search"), 
-                                       class = "btn-custom-small", 
+                                       class = "btn-primary", 
                                        style = "margin-top: 5px; margin-bottom: 10px;")
                         )
                       ),
@@ -234,7 +235,7 @@ ui <- fluidPage(
                       ),
                       
                       actionButton("reset_btn", "Reset Map & Filters",
-                                   icon = icon("refresh"), class = "btn-custom")
+                                   icon = icon("refresh"), class = "btn-reset")
                   )
               )
           ),
@@ -247,6 +248,12 @@ ui <- fluidPage(
                       h5(tags$i(class = "fas fa-map-location-dot"), " Ecoregion & Species Map")
                   ),
                   div(class = "map-body",
+                      div(
+                        id = "map-loading-overlay",
+                        class = "map-loading-overlay",
+                        div(class = "map-skeleton-box"),
+                        tags$span("Loading ecoregion layer...")
+                      ),
                       leafletOutput("map", height = 450)
                   )
               ),
@@ -262,8 +269,8 @@ ui <- fluidPage(
                       ),
                       hr(),
                       fluidRow(
-                        column(6, downloadButton("download_csv", "Download CSV", class = "btn-custom")),
-                        column(6, downloadButton("download_pdf", "Download PDF", class = "btn-custom"))
+                        column(6, downloadButton("download_csv", "Download CSV", class = "btn-download")),
+                        column(6, downloadButton("download_pdf", "Download PDF", class = "btn-download"))
                       )
                   )
               )
@@ -480,7 +487,8 @@ observeEvent(input$go_zip, {
   
   # -- OUTPUTS --
   
-  # Base Map with all ecoregions displayed
+  # Base map first, then ecoregions added via proxy for faster first paint.
+  ecoregions_layer_drawn <- reactiveVal(FALSE)
   first_map_render_logged <- FALSE
   output$map <- renderLeaflet({
     map_render_t0 <- proc.time()[["elapsed"]]
@@ -500,29 +508,35 @@ observeEvent(input$go_zip, {
       addMapPane("ecoregionsPane", zIndex = 410) %>%
       addMapPane("selectedEcoregionPane", zIndex = 415) %>%
       addMapPane("speciesPointsPane", zIndex = 420) %>%
-      addPolygons(
-        data = eco_display,
-        layerId = ~NA_L3KEY,
-        color = "#666666",
-        weight = 1,
-        fillColor = "#e0e0e0",
-        fillOpacity = 0.2,
-        options = pathOptions(pane = "ecoregionsPane"),
-        highlightOptions = highlightOptions(
-          weight = 2,
-          color = "#666",
-          fillOpacity = 0.4,
-          bringToFront = TRUE
-        ),
-        label = ~NA_L3NAME,
-        labelOptions = labelOptions(
-          style = list("font-weight" = "normal", padding = "3px 8px"),
-          textsize = "12px",
-          direction = "auto"
-        ),
-        group = "all_ecoregions"
-      ) %>%
       setView(lng = -96.6638, lat = 39.7177, zoom = 4)
+  })
+
+  observe({
+    if (ecoregions_layer_drawn()) {
+      return()
+    }
+    session$onFlushed(function() {
+      leafletProxy("map") %>%
+        clearGroup("all_ecoregions") %>%
+        addPolygons(
+          data = eco_display,
+          layerId = ~NA_L3KEY,
+          color = "#666666",
+          weight = 1,
+          fillColor = "#e0e0e0",
+          fillOpacity = 0.2,
+          options = pathOptions(pane = "ecoregionsPane"),
+          highlightOptions = highlightOptions(
+            weight = 2,
+            color = "#666",
+            fillOpacity = 0.4,
+            bringToFront = TRUE
+          ),
+          group = "all_ecoregions"
+        )
+      ecoregions_layer_drawn(TRUE)
+      shinyjs::hide("map-loading-overlay")
+    }, once = TRUE)
   })
   
   # Dynamic Results Card Title

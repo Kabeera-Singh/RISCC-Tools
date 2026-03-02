@@ -11,14 +11,42 @@ library(httr)
 library(readr)
 # rmarkdown loaded on-demand for PDF download (avoids slow startup)
 
-# Load appendix data (RDS preferred for speed; fread faster than read_csv when CSV used)
-if (file.exists("data/appendixS2.rds")) {
-  s2 <- readRDS("data/appendixS2.rds")
-} else if (requireNamespace("data.table", quietly = TRUE)) {
-  s2 <- as.data.frame(data.table::fread("data/appendixS2.csv"))
-} else {
-  s2 <- read_csv("data/appendixS2.csv", show_col_types = FALSE)
+startup_t0 <- proc.time()[["elapsed"]]
+startup_checkpoint <- function(label, checkpoint_t0) {
+  elapsed <- proc.time()[["elapsed"]] - checkpoint_t0
+  message(sprintf("[startup] %s: %.2fs", label, elapsed))
 }
+
+read_s2_data <- function() {
+  if (file.exists("data/appendixS2.rds")) {
+    readRDS("data/appendixS2.rds")
+  } else if (requireNamespace("data.table", quietly = TRUE)) {
+    as.data.frame(data.table::fread("data/appendixS2.csv"))
+  } else {
+    read_csv("data/appendixS2.csv", show_col_types = FALSE)
+  }
+}
+
+# Lazily loaded so startup does not pay cost unless needed
+get_s2_data <- local({
+  s2_cache <- NULL
+  function() {
+    if (is.null(s2_cache)) {
+      s2_cache <<- read_s2_data()
+    }
+    s2_cache
+  }
+})
+
+get_s7_data <- local({
+  s7_cache <- NULL
+  function() {
+    if (is.null(s7_cache)) {
+      s7_cache <<- readRDS("data/s7_merged.rds")
+    }
+    s7_cache
+  }
+})
 
 # Load ecoregions and prepare them for spatial operations
 eco <- readRDS("data/eco_simplified.rds")
@@ -39,32 +67,57 @@ if (file.exists(eco_dissolved_path)) {
     filter(sf::st_geometry_type(.) %in% c("POLYGON", "MULTIPOLYGON"))
   tryCatch(saveRDS(eco_dissolved, eco_dissolved_path), error = function(e) NULL)
 }
+startup_checkpoint("Loaded dissolved ecoregions", startup_t0)
+
+# Use lightweight geometry for initial map draw when available
+eco_display <- if (file.exists("data/eco_dissolved_light.rds")) {
+  readRDS("data/eco_dissolved_light.rds")
+} else {
+  eco_dissolved
+}
+startup_checkpoint("Loaded display geometry", startup_t0)
 
 # Load pre-computed species list and indexes (or compute at startup)
 if (file.exists("data/species_list.rds")) {
   final_unique <- readRDS("data/species_list.rds")
 } else {
+  s2 <- get_s2_data()
   s2_forests <- s2 %>%
     filter(NA_L1KEY == "8  EASTERN TEMPERATE FORESTS" | NA_L1KEY == "5  NORTHERN FORESTS")
   s2_abun <- s2_forests %>% filter(grepl("Abundant", commonness))
   final_unique <- sort(unique(s2_abun$Orig.Genus.species))
 }
+startup_checkpoint("Loaded species dropdown choices", startup_t0)
+
+# Compact species lookup (species -> row indices in shared s2 table)
+species_row_index <- if (file.exists("data/species_row_index.rds")) {
+  readRDS("data/species_row_index.rds")
+} else {
+  NULL
+}
 
 # Species index: use precomputed if available; otherwise NULL (filter on-demand in reactive)
 species_index <- if (file.exists("data/species_index.rds")) {
-  readRDS("data/species_index.rds")
+  if (is.null(species_row_index)) readRDS("data/species_index.rds") else NULL
 } else {
   NULL  # Avoid expensive split(s2, ...) at startup
 }
+startup_checkpoint("Loaded species index artifacts", startup_t0)
 
-# Load s7 and L3 data
-s7 <- readRDS("data/s7_merged.rds")
-L3_list <- data.frame(Species = s7$USDA.Genus.species, NA_L3KEY = s7$NA_L3KEY)
+# Load L3 index (fallback to s7-derived table only when index missing)
 L3_index <- if (file.exists("data/L3_index.rds")) {
   readRDS("data/L3_index.rds")
 } else {
   NULL  # Avoid split at startup; use filter in reactive
 }
+L3_list <- if (is.null(L3_index)) {
+  s7 <- get_s7_data()
+  data.frame(Species = s7$USDA.Genus.species, NA_L3KEY = s7$NA_L3KEY)
+} else {
+  NULL
+}
+startup_checkpoint("Loaded L3 lookup artifacts", startup_t0)
+startup_checkpoint("Total startup object load", startup_t0)
 
 
 ui <- fluidPage(
@@ -398,11 +451,18 @@ observeEvent(input$go_zip, {
     if(is.null(input$selected_species) || input$selected_species == "") {
       return(NULL)
     }
-    if (!is.null(species_index)) {
+    if (!is.null(species_row_index)) {
+      rows <- species_row_index[[input$selected_species]]
+      if (is.null(rows) || length(rows) == 0) {
+        data.frame()
+      } else {
+        get_s2_data()[rows, , drop = FALSE]
+      }
+    } else if (!is.null(species_index)) {
       res <- species_index[[input$selected_species]]
       if (is.null(res)) data.frame() else res
     } else {
-      s2 %>% filter(Orig.Genus.species == input$selected_species)
+      get_s2_data() %>% filter(Orig.Genus.species == input$selected_species)
     }
   })
   
@@ -421,7 +481,19 @@ observeEvent(input$go_zip, {
   # -- OUTPUTS --
   
   # Base Map with all ecoregions displayed
+  first_map_render_logged <- FALSE
   output$map <- renderLeaflet({
+    map_render_t0 <- proc.time()[["elapsed"]]
+    on.exit({
+      if (!first_map_render_logged) {
+        message(sprintf(
+          "[startup] initial renderLeaflet: %.2fs",
+          proc.time()[["elapsed"]] - map_render_t0
+        ))
+        first_map_render_logged <<- TRUE
+      }
+    }, add = TRUE)
+
     leaflet(options = leafletOptions(minZoom = 4,maxZoom = 20)) %>%
       addProviderTiles("CartoDB.Positron") %>%
       # Panes ensure points stay clickable above polygons
@@ -429,7 +501,7 @@ observeEvent(input$go_zip, {
       addMapPane("selectedEcoregionPane", zIndex = 415) %>%
       addMapPane("speciesPointsPane", zIndex = 420) %>%
       addPolygons(
-        data = eco_dissolved,
+        data = eco_display,
         layerId = ~NA_L3KEY,
         color = "#666666",
         weight = 1,

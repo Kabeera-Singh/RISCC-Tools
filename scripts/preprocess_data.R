@@ -45,12 +45,48 @@ if (file.exists(s2_csv)) {
   saveRDS(final_unique, file.path(abundance_data_dir, "species_list.rds"))
   message("  Saved s2_abun.rds, species_list.rds")
 
-  # Create species index for O(1) lookup
-  species_index <- split(s2_slim, s2_slim$Orig.Genus.species)
-  saveRDS(species_index, file.path(abundance_data_dir, "species_index.rds"))
-  message("  Saved species_index.rds")
+  # Compact species index for O(1) lookup with lower RAM overhead in app startup.
+  # Maps species -> integer row positions in appendixS2.rds.
+  species_row_index <- split(seq_len(nrow(s2_slim)), s2_slim$Orig.Genus.species)
+  saveRDS(species_row_index, file.path(abundance_data_dir, "species_row_index.rds"))
+  message("  Saved species_row_index.rds")
+
+  # Migration-safe legacy artifact: keep optional for one release window.
+  write_legacy_species_index <- FALSE
+  if (write_legacy_species_index) {
+    species_index <- split(s2_slim, s2_slim$Orig.Genus.species)
+    saveRDS(species_index, file.path(abundance_data_dir, "species_index.rds"))
+    message("  Saved legacy species_index.rds")
+  }
 } else {
   message("Skipping abundance data: appendixS2.csv not found")
+}
+
+# ---- 1b. Abundance Ecoregion Geometry Caches ----
+
+eco_path <- file.path(abundance_data_dir, "eco_simplified.rds")
+if (file.exists(eco_path) && requireNamespace("sf", quietly = TRUE)) {
+  message("Pre-computing abundance ecoregion geometries...")
+  eco <- readRDS(eco_path)
+  eco <- eco %>%
+    filter(sf::st_geometry_type(.) %in% c("POLYGON", "MULTIPOLYGON"))
+  eco <- tryCatch(sf::st_make_valid(eco), error = function(e) eco)
+
+  eco_dissolved <- eco %>%
+    group_by(NA_L3KEY, NA_L3NAME) %>%
+    summarise(geometry = sf::st_union(geometry), .groups = "drop") %>%
+    filter(sf::st_geometry_type(.) %in% c("POLYGON", "MULTIPOLYGON"))
+
+  saveRDS(eco_dissolved, file.path(abundance_data_dir, "eco_dissolved.rds"))
+
+  eco_dissolved_light <- tryCatch(
+    sf::st_simplify(eco_dissolved, dTolerance = 0.05, preserveTopology = TRUE),
+    error = function(e) eco_dissolved
+  )
+  saveRDS(eco_dissolved_light, file.path(abundance_data_dir, "eco_dissolved_light.rds"))
+  message("  Saved eco_dissolved.rds, eco_dissolved_light.rds")
+} else {
+  message("Skipping abundance ecoregion geometry: eco_simplified.rds not found or sf unavailable")
 }
 
 # ---- 2. L3_list and L3_index (requires s7_merged.rds) ----

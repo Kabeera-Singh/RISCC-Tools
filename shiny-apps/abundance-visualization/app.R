@@ -538,16 +538,12 @@ observeEvent(input$go_zip, {
       setView(lng = -96.6638, lat = 39.7177, zoom = 4)
   })
 
-  observe({
-    session$onFlushed(function() {
-      if (identical(input$input_method, "click")) {
-        draw_ecoregions_layer()
-      } else {
-        clear_ecoregions_layer()
-      }
-      shinyjs::hide("map-loading-overlay")
-    }, once = TRUE)
-  })
+  session$onFlushed(function() {
+    # Cold start defaults to zip/coords behavior: keep basemap visible
+    # and defer ecoregion layer until click mode is selected.
+    clear_ecoregions_layer()
+    shinyjs::hide("map-loading-overlay")
+  }, once = TRUE)
 
   observeEvent(input$input_method, {
     if (identical(input$input_method, "click")) {

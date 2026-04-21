@@ -63,7 +63,21 @@ ui <- fluidPage(
     tags$link(
       href = "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css",
       rel = "stylesheet"
-    )
+    ),
+    # Connection error detection for corporate proxy users
+    tags$script(HTML("
+      $(document).on('shiny:disconnected', function(event) {
+        if (!$('#proxy-error-banner').length) {
+          $('body').prepend(
+            '<div id=\"proxy-error-banner\" style=\"background:#fff3cd;border:1px solid #ffc107;padding:15px;margin:10px;border-radius:8px;text-align:center;\">' +
+            '<strong>Connection Issue Detected</strong><br>' +
+            'If you are on a corporate network (VPN, Zscaler, etc.), the security software may be blocking this application.<br>' +
+            '<strong>Solutions:</strong> Try using a personal network, mobile hotspot, or ask IT to whitelist this domain.' +
+            '</div>'
+          );
+        }
+      });
+    "))
   ),
   useShinyjs(),
 

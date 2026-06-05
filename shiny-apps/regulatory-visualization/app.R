@@ -71,7 +71,6 @@ ui <- fluidPage(
       href = "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css",
       rel = "stylesheet"
     ),
-    # Connection error detection for corporate proxy users
     tags$script(HTML("
       $(document).on('shiny:disconnected', function(event) {
         if (!$('#proxy-error-banner').length) {
@@ -82,6 +81,24 @@ ui <- fluidPage(
             '<strong>Solutions:</strong> Try using a personal network, mobile hotspot, or ask IT to whitelist this domain.' +
             '</div>'
           );
+        }
+      });
+
+      // GA4 custom event handler for Shiny server messages
+      Shiny.addCustomMessageHandler('ga_event', function(data) {
+        if (typeof gtag !== 'undefined') {
+          gtag('event', data.event_name, data.params || {});
+        }
+      });
+
+      // Track map engagement (first interaction only)
+      var mapEngaged = false;
+      $(document).on('mousedown', '.leaflet-container', function() {
+        if (!mapEngaged) {
+          mapEngaged = true;
+          if (typeof gtag !== 'undefined') {
+            gtag('event', 'map_engaged', { tool: 'regulatory_visualization' });
+          }
         }
       });
     "))
@@ -210,12 +227,28 @@ ui <- fluidPage(
 
 server <- function(input, output, session) {
   
+  # GA4 Analytics Event Tracking
+  ga_event <- function(event_name, params = list()) {
+    params$tool <- "regulatory_visualization"
+    session$sendCustomMessage("ga_event", list(event_name = event_name, params = params))
+  }
+
   observe({
     species_choices <- sort(unique(plants_data$Clean.Scientific.Name))
     updateSelectInput(session, "selected_species", choices = c("All", species_choices))
   })
 
+  observeEvent(input$selected_state, {
+    ga_event("filter_state", list(state = input$selected_state))
+  }, ignoreInit = TRUE)
+
+  observeEvent(input$selected_species, {
+    req(input$selected_species)
+    ga_event("filter_species", list(species = input$selected_species))
+  }, ignoreInit = TRUE)
+
   observeEvent(input$reset_btn, {
+    ga_event("reset_filters")
     updateSelectInput(session, "selected_state", selected = "All")
     updateSelectInput(session, "selected_species", selected = "All")
     leafletProxy("state_map") %>%
@@ -439,6 +472,7 @@ server <- function(input, output, session) {
       }
     },
     content = function(file) {
+      ga_event("download_csv", list(state = input$selected_state, species = input$selected_species))
       write.csv(filtered_data(), file, row.names = FALSE)
     }
   )
@@ -454,6 +488,7 @@ server <- function(input, output, session) {
       }
     },
     content = function(file) {
+      ga_event("download_txt", list(state = input$selected_state, species = input$selected_species))
       write.table(filtered_data(), file, sep = "\t", row.names = FALSE, quote = FALSE)
     }
   )

@@ -134,7 +134,6 @@ ui <- fluidPage(
       href = "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css",
       rel = "stylesheet"
     ),
-    # Connection error detection for corporate proxy users
     tags$script(HTML("
       $(document).on('shiny:disconnected', function(event) {
         if (!$('#proxy-error-banner').length) {
@@ -145,6 +144,24 @@ ui <- fluidPage(
             '<strong>Solutions:</strong> Try using a personal network, mobile hotspot, or ask IT to whitelist this domain.' +
             '</div>'
           );
+        }
+      });
+
+      // GA4 custom event handler for Shiny server messages
+      Shiny.addCustomMessageHandler('ga_event', function(data) {
+        if (typeof gtag !== 'undefined') {
+          gtag('event', data.event_name, data.params || {});
+        }
+      });
+
+      // Track map engagement (first interaction only)
+      var mapEngaged = false;
+      $(document).on('mousedown', '.leaflet-container', function() {
+        if (!mapEngaged) {
+          mapEngaged = true;
+          if (typeof gtag !== 'undefined') {
+            gtag('event', 'map_engaged', { tool: 'abundance_visualization' });
+          }
         }
       });
     "))
@@ -318,6 +335,12 @@ ui <- fluidPage(
 
 server <- function(input, output, session) {
   
+  # GA4 Analytics Event Tracking
+  ga_event <- function(event_name, params = list()) {
+    params$tool <- "abundance_visualization"
+    session$sendCustomMessage("ga_event", list(event_name = event_name, params = params))
+  }
+
   point <- reactiveVal(NULL)
   region <- reactiveVal(NULL)
 
@@ -343,9 +366,14 @@ server <- function(input, output, session) {
     )
   })
   
+  observeEvent(input$input_method, {
+    ga_event("change_input_method", list(method = input$input_method))
+  }, ignoreInit = TRUE)
+
   # Action observer for coordinates
   observeEvent(input$go, {
     req(input$lat, input$lon)
+    ga_event("search_by_coords", list(lon = round(input$lon, 1), lat = round(input$lat, 1)))
 
     # Create a point from input coordinates
     pt <- st_sfc(st_point(c(input$lon, input$lat)), crs = 4326)
@@ -366,6 +394,7 @@ server <- function(input, output, session) {
 # Action observer for zip code
 observeEvent(input$go_zip, {
   req(input$zipcode)
+  ga_event("search_by_zip", list(zipcode = input$zipcode))
   
   # Validate zip code format (basic check)
   if (!grepl("^\\d{5}$", input$zipcode)) {
@@ -445,6 +474,7 @@ observeEvent(input$go_zip, {
         centroid <- st_centroid(st_geometry(region_found))
         point(centroid)
         
+        ga_event("select_ecoregion_click", list(ecoregion = region_found$NA_L3NAME[1]))
         showNotification(paste("Selected:", region_found$NA_L3NAME[1]), type = "message")
       }
     }
@@ -452,6 +482,7 @@ observeEvent(input$go_zip, {
   
   # Reset button
   observeEvent(input$reset_btn, {
+    ga_event("reset_map")
     # Reset coordinates and triggers
     updateNumericInput(session, "lon", value = -72)
     updateNumericInput(session, "lat", value = 42)
@@ -755,6 +786,12 @@ observeEvent(input$go_zip, {
   }
 
   # CSV download
+  observeEvent(input$selected_species, {
+    if (!is.null(input$selected_species) && nchar(input$selected_species) > 0) {
+      ga_event("select_species", list(species_name = input$selected_species))
+    }
+  }, ignoreInit = TRUE)
+
   output$download_csv <- downloadHandler(
     filename = function() {
       if (is.null(region())) {
@@ -765,6 +802,8 @@ observeEvent(input$go_zip, {
       }
     },
     content = function(file) {
+      ecoregion <- if (!is.null(region())) as.character(region()$NA_L3NAME[1]) else "none"
+      ga_event("download_csv", list(ecoregion = ecoregion))
       if(is.null(region())) {
         write.csv(data.frame(Message = "No ecoregion selected."), file, row.names = FALSE)
       } else {
@@ -784,6 +823,8 @@ observeEvent(input$go_zip, {
       }
     },
     content = function(file) {
+      ecoregion <- if (!is.null(region())) as.character(region()$NA_L3NAME[1]) else "none"
+      ga_event("download_pdf", list(ecoregion = ecoregion))
       if(is.null(region())) {
         writeLines("PDF generation skipped. No ecoregion selected.", file)
       } else {

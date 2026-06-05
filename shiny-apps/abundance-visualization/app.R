@@ -122,9 +122,14 @@ startup_checkpoint("Total startup object load", startup_t0)
 
 ui <- fluidPage(
   tags$head(
-    # Link to the external CSS file (must be in 'www' folder)
+    tags$script(async = NA, src = "https://www.googletagmanager.com/gtag/js?id=G-K89HMLXL9K"),
+    tags$script(HTML("
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+      gtag('config', 'G-K89HMLXL9K');
+    ")),
     tags$link(rel = "stylesheet", type = "text/css", href = "style.css"),
-    # Link to Font Awesome for icons
     tags$link(
       href = "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css",
       rel = "stylesheet"

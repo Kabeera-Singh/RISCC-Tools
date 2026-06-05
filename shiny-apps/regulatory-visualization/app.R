@@ -59,6 +59,13 @@ clean_colnames <- function(df) {
 
 ui <- fluidPage(
   tags$head(
+    tags$script(async = NA, src = "https://www.googletagmanager.com/gtag/js?id=G-K89HMLXL9K"),
+    tags$script(HTML("
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+      gtag('config', 'G-K89HMLXL9K');
+    ")),
     tags$link(rel = "stylesheet", type = "text/css", href = "style.css"),
     tags$link(
       href = "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css",

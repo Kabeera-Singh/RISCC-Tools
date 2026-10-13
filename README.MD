@@ -128,9 +128,21 @@ This converts CSVs into compact RDS files so the apps start faster:
 Rscript scripts/preprocess_data.R
 ```
 
-The script produces several files including `appendixS2.rds`, `species_list.rds`, `eco_dissolved.rds`, `L3_list.rds`, `plants_data.rds`, and `state_polygons.rds`. It must be run from the project root directory.
+The script produces several files including `appendixS2.rds`, `species_list.rds`, `eco_dissolved.rds`, `L3_list.rds` and `plants_data.rds`. It must be run from the project root directory.
 
 If you don't have R installed locally, you can skip this step — the apps will still work but may load more slowly from the raw CSVs.
+
+**Required for the regulatory map:** `shiny-apps/regulatory-visualization/data/state_shapes.rds` (state outlines from the U.S. Census Bureau). Get it from the shared Google Drive folder, or build it yourself. The build needs internet access and the `sf` and `tigris` packages:
+
+```bash
+Rscript scripts/build_state_shapes.R
+```
+
+Without R installed locally, you can run it inside the built image and then rebuild:
+
+```bash
+docker run --rm -v "$PWD:/repo" -w /repo --entrypoint sh riscc-tools -c 'Rscript -e "install.packages(\"tigris\")" && Rscript scripts/build_state_shapes.R'
+```
 
 ### 4. Build and run locally
 
@@ -290,7 +302,8 @@ RISCC-Tools/
 ├── supervisor.conf             # Runs Nginx and Shiny Server together
 ├── shiny-server.conf           # Shiny Server settings (port 3838)
 ├── scripts/
-│   └── preprocess_data.R       # CSV → RDS data preprocessing
+│   ├── preprocess_data.R       # CSV → RDS data preprocessing
+│   └── build_state_shapes.R    # Census state outlines for the regulatory map
 ├── ui/
 │   └── shared/css/             # Design tokens, layout, and components shared across apps
 ├── shiny-apps/

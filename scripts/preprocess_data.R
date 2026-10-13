@@ -5,7 +5,6 @@
 
 library(readr)
 library(dplyr)
-library(maps)
 
 # Run from project root: Rscript scripts/preprocess_data.R
 if (!file.exists("shiny-apps")) {
@@ -123,23 +122,8 @@ if (file.exists(plants_csv)) {
   message("Skipping regulatory data: CSV not found")
 }
 
-# ---- 4. Pre-compute State Polygons ----
-
-message("Pre-computing state polygons...")
-state_polygons <- list()
-for (state in tolower(state.name)) {
-  poly <- tryCatch(
-    maps::map("state", regions = state, plot = FALSE, fill = TRUE),
-    error = function(e) NULL
-  )
-  if (!is.null(poly) && length(poly$x) > 0) {
-    state_polygons[[state]] <- list(x = poly$x, y = poly$y, type = "polygon")
-  }
-}
-# Add Puerto Rico as point (no polygon in maps package)
-state_polygons[["puerto rico"]] <- list(x = -66.5, y = 18.2, type = "point")
-
-saveRDS(state_polygons, file.path(regulatory_data_dir, "state_polygons.rds"))
-message("  Saved state_polygons.rds")
+# ---- 4. State Outlines for the Regulatory Map ----
+# Built separately (needs sf, tigris and internet access):
+#   Rscript scripts/build_state_shapes.R
 
 message("Preprocessing complete.")

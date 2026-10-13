@@ -4,8 +4,8 @@ library(readxl)
 library(shiny)
 library(shinyjs)
 library(DT)
-library(maps)
 library(readr)
+library(sf)
 
 # Load plants data (RDS preferred for speed; fallback to CSV)
 if (file.exists("data/plants_data.rds")) {
@@ -14,36 +14,114 @@ if (file.exists("data/plants_data.rds")) {
   plants_data <- read_csv("data/Final Regulated Plants by State June 2025 - MergedPlantsByState.csv", show_col_types = FALSE)
 }
 
-# Load pre-computed state polygons (avoids repeated maps::map() calls)
-if (file.exists("data/state_polygons.rds")) {
-  state_polygons <- readRDS("data/state_polygons.rds")
-} else {
-  state_polygons <- list()
-  for (state in tolower(state.name)) {
-    poly <- tryCatch(
-      maps::map("state", regions = state, plot = FALSE, fill = TRUE),
-      error = function(e) NULL
-    )
-    if (!is.null(poly) && length(poly$x) > 0) {
-      state_polygons[[state]] <- list(x = poly$x, y = poly$y, type = "polygon")
-    }
-  }
-  state_polygons[["puerto rico"]] <- list(x = -66.5, y = 18.2, type = "point")
-}
+# State outlines: Census 1:20m boundaries with AK/HI/PR moved below the lower 48
+# (built by scripts/build_state_shapes.R)
+state_shapes <- readRDS("data/state_shapes.rds")
 
-# Vectorized state abbr -> name lookup
+species_counts <- plants_data %>%
+  distinct(State, Clean.Scientific.Name) %>%
+  count(State, name = "n_species")
+state_shapes$n_species <- species_counts$n_species[match(state_shapes$STUSPS, species_counts$State)]
+state_shapes$n_species[is.na(state_shapes$n_species)] <- 0L
+
+federal_species <- unique(plants_data$Clean.Scientific.Name[plants_data$State == "FED"])
+
+us_bounds <- unname(sf::st_bbox(state_shapes))
+
 state_map <- data.frame(
   StateName = c(state.name, "Puerto Rico"),
   StateAbbr = c(state.abb, "PR"),
   stringsAsFactors = FALSE
 )
-state_abbr_to_name <- setNames(state_map$StateName, state_map$StateAbbr)
 state_name_to_abbr <- setNames(state_map$StateAbbr, state_map$StateName)
 
-state_to_maps_name <- function(state_name) {
-  x <- tolower(state_name)
-  x <- gsub("[[:punct:]]", "", x)
-  x
+# Map styling: Albers equal-area projection with no basemap tiles, shaded in the
+# site's red palette
+albers_crs <- leafletCRS(
+  crsClass = "L.Proj.CRS", code = "EPSG:5070",
+  proj4def = "+proj=aea +lat_0=23 +lon_0=-96 +lat_1=29.5 +lat_2=45.5 +x_0=0 +y_0=0 +datum=NAD83 +units=m +no_defs",
+  resolutions = 2^(16:7)
+)
+no_data_color <- "#e2e2e2"
+regulated_color <- "#881c1c"
+selected_outline_color <- "#2c2c2c"
+count_breaks <- c(-Inf, 0, 25, 50, 100, 150, Inf)
+count_labels <- c("None listed", "1-25", "26-50", "51-100", "101-150", "151+")
+count_colors <- c(no_data_color, "#fcbba1", "#fc9272", "#ef5a43", "#cb2a24", "#881c1c")
+
+fit_to_bbox <- function(map, bb) {
+  fitBounds(map, bb[1], bb[2], bb[3], bb[4], options = list(padding = c(8, 8)))
+}
+
+# Shades every state (species count by default, or regulated/not for a chosen
+# species). A chosen state keeps full color while the others fade, and its
+# outline sits in its own pane above the states so hovering never covers it.
+# Works on a leaflet map or a proxy.
+draw_states <- function(map, selected_state, selected_species) {
+  species_active <- !is.null(selected_species) && selected_species != "All"
+  state_names <- htmltools::htmlEscape(state_shapes$NAME)
+
+  if (species_active) {
+    species_rows <- plants_data[plants_data$Clean.Scientific.Name == selected_species, ]
+    levels_by_state <- tapply(species_rows$Reg.Level, species_rows$State,
+                              function(x) paste(unique(x), collapse = ", "))
+    reg_level <- unname(levels_by_state[state_shapes$STUSPS])
+    regulated <- !is.na(reg_level)
+    fill <- ifelse(regulated, regulated_color, no_data_color)
+    labels <- ifelse(
+      regulated,
+      sprintf("<strong>%s</strong><br>Regulated: %s", state_names, htmltools::htmlEscape(reg_level)),
+      sprintf("<strong>%s</strong><br>Not regulated", state_names)
+    )
+    legend_colors <- c(regulated_color, no_data_color)
+    legend_labels <- c("Regulated", "Not regulated")
+    legend_title <- "Species status"
+  } else {
+    fill <- count_colors[cut(state_shapes$n_species, count_breaks, labels = FALSE)]
+    labels <- sprintf(
+      "<strong>%s</strong><br>%s", state_names,
+      ifelse(state_shapes$n_species == 0, "No regulated species listed",
+             paste(state_shapes$n_species, "regulated species"))
+    )
+    legend_colors <- count_colors
+    legend_labels <- count_labels
+    legend_title <- "Regulated species"
+  }
+
+  selected_shape <- state_shapes[state_shapes$NAME == selected_state, ]
+  state_active <- nrow(selected_shape) > 0
+  fill_opacity <- if (state_active) ifelse(state_shapes$NAME == selected_state, 1, 0.5) else 1
+
+  map <- map %>%
+    clearGroup("states") %>%
+    clearGroup("selected") %>%
+    clearControls() %>%
+    addPolygons(
+      data = state_shapes, layerId = ~STUSPS, group = "states",
+      fillColor = fill, fillOpacity = fill_opacity,
+      color = "#ffffff", weight = 0.8, opacity = 1,
+      label = lapply(labels, htmltools::HTML),
+      labelOptions = labelOptions(direction = "auto", textsize = "13px"),
+      highlightOptions = highlightOptions(color = "#ffffff", weight = 3, bringToFront = TRUE)
+    ) %>%
+    addLegend("bottomright", colors = legend_colors, labels = legend_labels,
+              title = legend_title, opacity = 1)
+
+  if (state_active) {
+    # White halo under a dark stroke keeps the outline visible on any fill
+    map <- map %>%
+      addPolygons(
+        data = selected_shape, group = "selected",
+        fill = FALSE, color = "#ffffff", weight = 6, opacity = 1,
+        options = pathOptions(pane = "selected", interactive = FALSE)
+      ) %>%
+      addPolygons(
+        data = selected_shape, group = "selected",
+        fill = FALSE, color = selected_outline_color, weight = 2.5, opacity = 1,
+        options = pathOptions(pane = "selected", interactive = FALSE)
+      )
+  }
+  fit_to_bbox(map, us_bounds)
 }
 
 clean_colnames <- function(df) {
@@ -66,7 +144,9 @@ ui <- fluidPage(
       gtag('js', new Date());
       gtag('config', 'G-K89HMLXL9K');
     ")),
-    tags$link(rel = "stylesheet", type = "text/css", href = "style.css"),
+    # Version stamp so browsers pick up stylesheet changes after a deploy
+    tags$link(rel = "stylesheet", type = "text/css",
+              href = paste0("style.css?v=", as.integer(file.mtime("www/style.css")))),
     tags$link(
       href = "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css",
       rel = "stylesheet"
@@ -168,24 +248,28 @@ ui <- fluidPage(
             actionButton("reset_btn", "Reset Filters",
               icon = icon("refresh"), class = "btn-reset"
             ),
-            hr(),
-            div(
-              class = "map-card",
-              div(
-                class = "map-header",
-                h5(tags$i(class = "fas fa-map-location-dot"), " Regulation Map")
-              ),
-              div(
-                class = "map-body",
-                leafletOutput("state_map", height = 200)
-              )
-            )
+            p(class = "filter-hint",
+              tags$i(class = "fas fa-hand-pointer"), " Tip: click a state on the map to select it.")
           )
         )
       ),
 
       div(
         class = "main-panel",
+        div(
+          class = "map-card",
+          div(
+            class = "map-header",
+            h5(tags$i(class = "fas fa-map-location-dot"), " Regulation Map")
+          ),
+          div(
+            class = "map-body",
+            uiOutput("map_caption", class = "map-caption"),
+            leafletOutput("state_map", height = 460),
+            p(class = "map-note",
+              "State boundaries: U.S. Census Bureau. Alaska, Hawaii and Puerto Rico are repositioned and not to scale.")
+          )
+        ),
         div(
           class = "results-card",
           div(
@@ -251,11 +335,7 @@ server <- function(input, output, session) {
     ga_event("reset_filters")
     updateSelectInput(session, "selected_state", selected = "All")
     updateSelectInput(session, "selected_species", selected = "All")
-    leafletProxy("state_map") %>%
-      clearShapes() %>%
-      clearMarkers() %>%
-      clearControls() %>%
-      setView(lng = -98.5795, lat = 39.8283, zoom = 4)
+    leafletProxy("state_map") %>% fit_to_bbox(us_bounds)
   })
 
   filtered_data <- reactive({
@@ -303,162 +383,46 @@ server <- function(input, output, session) {
   })
 
   output$state_map <- renderLeaflet({
-    leaflet(options = leafletOptions(minZoom = 2, maxZoom = 20)) %>%
-      addProviderTiles("CartoDB.Positron") %>%
-      setView(lng = -98.5795, lat = 39.8283, zoom = 4)
+    leaflet(options = leafletOptions(
+      crs = albers_crs, zoomSnap = 0.1, zoomDelta = 0.5,
+      minZoom = 1, maxZoom = 8
+    )) %>%
+      addMapPane("selected", zIndex = 450) %>%
+      draw_states("All", "All")
   })
 
-  observe({
+  observeEvent(list(input$selected_state, input$selected_species), {
     leafletProxy("state_map") %>%
-      clearShapes() %>%
-      clearMarkers() %>%
-      clearControls()
+      draw_states(input$selected_state, input$selected_species)
+  }, ignoreInit = TRUE)
 
-    species_active <- (!is.null(input$selected_species) && input$selected_species != "All")
-    state_active <- (input$selected_state != "All")
+  # Clicking a state selects it; clicking the selected state again clears it
+  observeEvent(input$state_map_shape_click, {
+    clicked <- state_shapes$NAME[match(input$state_map_shape_click$id, state_shapes$STUSPS)]
+    if (is.na(clicked) || !(clicked %in% state_map$StateName)) return()
+    ga_event("map_click_state", list(state = clicked))
+    updateSelectInput(session, "selected_state",
+      selected = if (identical(input$selected_state, clicked)) "All" else clicked)
+  })
 
-    if (!species_active && !state_active) {
-      leafletProxy("state_map") %>%
-        setView(lng = -98.5795, lat = 39.8283, zoom = 4)
-      return()
+  output$map_caption <- renderUI({
+    species <- input$selected_species
+    caption <- if (!is.null(species) && species != "All") {
+      tagList(
+        "States regulating ", tags$em(species),
+        if (species %in% federal_species) " (also federally regulated)"
+      )
+    } else {
+      "Number of regulated plant species by state"
     }
 
-    if (species_active) {
-      states_for_species <- plants_data %>%
-        filter(Clean.Scientific.Name == input$selected_species) %>%
-        pull(State) %>%
-        unique()
-
-      # Vectorized state lookup
-      state_names <- state_abbr_to_name[states_for_species]
-      state_names <- state_names[!is.na(state_names)]
-
-      # Collect polygons and coords (no vector growing)
-      species_items <- lapply(state_names, function(state_name) {
-        region_name <- state_to_maps_name(state_name)
-        poly <- state_polygons[[region_name]]
-        if (is.null(poly)) return(NULL)
-        list(state_name = state_name, region_name = region_name, poly = poly)
-      })
-      species_items <- species_items[!sapply(species_items, is.null)]
-
-      proxy <- leafletProxy("state_map")
-      for (item in species_items) {
-        state_name <- item$state_name
-        poly <- item$poly
-        if (identical(poly$type, "point")) {
-          proxy <- proxy %>%
-            addCircleMarkers(
-              lng = poly$x, lat = poly$y, radius = 15,
-              fillColor = "forestgreen", fillOpacity = 0.5,
-              color = "darkgreen", weight = 2,
-              label = paste0(state_name, " (Species Regulated)"), group = "species"
-            )
-        } else {
-          proxy <- proxy %>%
-            addPolygons(
-              lng = poly$x, lat = poly$y,
-              fillColor = "forestgreen", fillOpacity = 0.5,
-              color = "darkgreen", weight = 1,
-              label = state_name, group = "species"
-            )
-        }
-      }
-
-      if (length(species_items) > 0) {
-        all_lngs <- unlist(lapply(species_items, function(i) i$poly$x))
-        all_lats <- unlist(lapply(species_items, function(i) i$poly$y))
-        if (length(all_lngs) > 0 && length(all_lats) > 0) {
-          lng_range <- range(all_lngs, na.rm = TRUE)
-          lat_range <- range(all_lats, na.rm = TRUE)
-          lng_pad <- max(diff(lng_range) * 0.1, 1)
-          lat_pad <- max(diff(lat_range) * 0.1, 1)
-          proxy <- proxy %>%
-            fitBounds(
-              lng_range[1] - lng_pad, lat_range[1] - lat_pad,
-              lng_range[2] + lng_pad, lat_range[2] + lat_pad
-            )
-        }
-      }
-    }
-
-    if (state_active) {
-      region_name <- state_to_maps_name(input$selected_state)
-
-      if (region_name == "puerto rico") {
-        leafletProxy("state_map") %>%
-          setView(lng = -66.5, lat = 18.2, zoom = 8) %>%
-          addCircleMarkers(
-            lng = -66.5, lat = 18.2, radius = 15,
-            fillColor = "gold", fillOpacity = 0.5,
-            color = "gold", weight = 4,
-            label = "Puerto Rico (data available, map outline not available)"
-          )
-      } else if (region_name == "alaska") {
-        leafletProxy("state_map") %>%
-          setView(lng = -152, lat = 64, zoom = 4) %>%
-          addRectangles(
-            lng1 = -170, lat1 = 54, lng2 = -130, lat2 = 72,
-            fillColor = "gold", fillOpacity = 0.3,
-            color = "gold", weight = 4, label = "Alaska"
-          )
-      } else if (region_name == "hawaii") {
-        leafletProxy("state_map") %>%
-          setView(lng = -157, lat = 20.5, zoom = 6) %>%
-          addRectangles(
-            lng1 = -160.5, lat1 = 18.5, lng2 = -154.5, lat2 = 22.5,
-            fillColor = "gold", fillOpacity = 0.3,
-            color = "gold", weight = 4, label = "Hawaii"
-          )
-      } else {
-        selected_state_poly <- state_polygons[[region_name]]
-        if (is.null(selected_state_poly)) {
-          selected_state_poly <- tryCatch(
-            maps::map("state", regions = region_name, plot = FALSE, fill = TRUE),
-            error = function(e) list(x = numeric(0), y = numeric(0))
-          )
-        }
-        
-        if (!is.null(selected_state_poly) && length(selected_state_poly$x) > 0) {
-          leafletProxy("state_map") %>%
-            addPolygons(
-              lng = selected_state_poly$x, lat = selected_state_poly$y,
-              fillColor = "gold", fillOpacity = 0.3,
-              color = "gold", weight = 4,
-              label = input$selected_state, group = "state"
-            )
-
-          lng_bounds <- range(selected_state_poly$x, na.rm = TRUE)
-          lat_bounds <- range(selected_state_poly$y, na.rm = TRUE)
-          lng_padding <- diff(lng_bounds) * 0.1
-          lat_padding <- diff(lat_bounds) * 0.1
-          
-          leafletProxy("state_map") %>%
-            fitBounds(
-              lng_bounds[1] - lng_padding, lat_bounds[1] - lat_padding,
-              lng_bounds[2] + lng_padding, lat_bounds[2] + lat_padding
-            )
-        }
-      }
-    }
-
-    if (species_active || state_active) {
-      legend_colors <- c()
-      legend_labels <- c()
-
-      if (species_active) {
-        legend_colors <- c(legend_colors, "forestgreen")
-        legend_labels <- c(legend_labels, "Species Regulated")
-      }
-      if (state_active) {
-        legend_colors <- c(legend_colors, "gold")
-        legend_labels <- c(legend_labels, "Selected State")
-      }
-
-      leafletProxy("state_map") %>%
-        addLegend("bottomright", colors = legend_colors, 
-          labels = legend_labels, opacity = 0.7)
-    }
+    selected <- state_shapes[state_shapes$NAME == input$selected_state, ]
+    if (nrow(selected) == 0) return(caption)
+    tagList(
+      caption,
+      tags$span(class = "map-caption-state",
+        sprintf("%s: %d regulated species", selected$NAME, selected$n_species))
+    )
   })
 
   output$download_csv <- downloadHandler(

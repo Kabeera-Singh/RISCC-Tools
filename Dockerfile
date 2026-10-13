@@ -40,12 +40,14 @@ ENV PATH="/root/.cargo/bin:${PATH}"
 ENV GDAL_CONFIG=/usr/bin/gdal-config
 ENV PROJ_LIB=/usr/share/proj
 
+# Packages install from the base image's default repo (Posit Package Manager pre-built
+# Ubuntu binaries), which is far faster than compiling from cran.rstudio.com sources.
 # Install basic CRAN packages first (excluding problematic spatial ones)
-RUN R -e "install.packages(c('shiny', 'tidyverse', 'shinyWidgets', 'DT', 'stringr', 'readxl', 'shinyjs', 'rrapply', 'data.table', 'shinydashboard', 'bslib', 'dplyr', 'ggplot2', 'remotes','DBI','duckdb'), repos='https://cran.rstudio.com/', dependencies=TRUE)"
-RUN R -e "install.packages(c('httr','jsonlite'), repos='https://cran.rstudio.com/', dependencies=TRUE)"
+RUN R -e "install.packages(c('shiny', 'tidyverse', 'shinyWidgets', 'DT', 'stringr', 'readxl', 'shinyjs', 'rrapply', 'data.table', 'shinydashboard', 'bslib', 'dplyr', 'ggplot2', 'remotes','DBI','duckdb'), dependencies=TRUE)"
+RUN R -e "install.packages(c('httr','jsonlite'), dependencies=TRUE)"
 
 # Install remaining spatial packages
-RUN R -e "install.packages(c('leaflet', 'leafpop','shiny.fluent'), repos='https://cran.rstudio.com/', dependencies=TRUE)"
+RUN R -e "install.packages(c('leaflet', 'leafpop','shiny.fluent'), dependencies=TRUE)"
 
 # Copy Shiny Server configuration
 COPY shiny-server.conf /etc/shiny-server/shiny-server.conf

@@ -196,8 +196,10 @@ The Dockerfile copies `ui/shared/css/` into the homepage and both Shiny app dire
 Find the `install.packages(...)` lines in the Dockerfile and add your package name to the list:
 
 ```dockerfile
-RUN R -e "install.packages(c('shiny', 'tidyverse', ..., 'YOUR_PACKAGE'), repos='https://cran.rstudio.com/', dependencies=TRUE)"
+RUN R -e "install.packages(c('shiny', 'tidyverse', ..., 'YOUR_PACKAGE'), dependencies=TRUE)"
 ```
+
+Don't add a `repos=` argument. Without it, packages install from the base image's default repository (Posit Package Manager), which serves pre-built Linux binaries. Pointing at `cran.rstudio.com` makes every package compile from source and turns a ~2 minute build into 30+ minutes.
 
 ## Pushing Changes to GitHub
 

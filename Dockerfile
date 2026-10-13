@@ -58,9 +58,11 @@ COPY nginx/html/ /usr/share/nginx/html/
 COPY ui/shared/css/ /usr/share/nginx/html/www/css/shared/
 
 # Copy Shiny apps
-COPY shiny-apps/abundance-visualization/ /srv/shiny-server/abundance-visualization/
+# Abundance visualization unpublished 2026-10-13
+# COPY shiny-apps/abundance-visualization/ /srv/shiny-server/abundance-visualization/
 COPY shiny-apps/regulatory-visualization/ /srv/shiny-server/regulatory-visualization/
-COPY ui/shared/css/ /srv/shiny-server/abundance-visualization/www/css/shared/
+# Abundance visualization unpublished 2026-10-13
+# COPY ui/shared/css/ /srv/shiny-server/abundance-visualization/www/css/shared/
 COPY ui/shared/css/ /srv/shiny-server/regulatory-visualization/www/css/shared/
 
 # Create supervisor configuration

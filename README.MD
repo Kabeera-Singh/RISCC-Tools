@@ -9,7 +9,7 @@ Interactive web tools for visualizing species abundance and regulatory data acro
 
 | Component                    | Description                                                          |
 | ---------------------------- | -------------------------------------------------------------------- |
-| **abundance-visualization**  | Map-based explorer for species abundance across eastern U.S. forests |
+| **abundance-visualization**  | Map-based explorer for species abundance across eastern U.S. forests. **Not currently deployed** (unpublished 2026-10-13; re-enable via the commented lines in `Dockerfile` and `nginx/conf.d/default.conf`) |
 | **regulatory-visualization** | State-by-state view of regulated plant species                       |
 | **Homepage**                 | Static landing page linking to both tools                            |
 

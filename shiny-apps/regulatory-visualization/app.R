@@ -21,6 +21,8 @@ if (file.exists("data/plants_data.rds")) {
 # State and province outlines (CEC North American Atlas), with Hawaii and Puerto
 # Rico moved in near the lower 48. Built by scripts/build_state_shapes.R.
 state_shapes <- readRDS("data/state_shapes.rds")
+# Frames drawn around the Hawaii and Puerto Rico insets
+inset_frames <- readRDS("data/inset_frames.rds")
 
 species_counts <- plants_data %>%
   distinct(State, Clean.Scientific.Name) %>%
@@ -54,7 +56,11 @@ fit_extent_js <- "
       var zoom = crs.zoom(Math.min(size.x / (xmax - xmin), size.y / (ymax - ymin)));
       var snap = this.options.zoomSnap || 1;
       var center = crs.projection.unproject(L.point((xmin + xmax) / 2, (ymin + ymax) / 2));
-      this.setView(center, Math.floor(zoom / snap) * snap, { animate: false });
+      zoom = Math.floor(zoom / snap) * snap;
+      // Zooming out stops just past the full view, so the map can't shrink
+      // into a small patch in a sea of gray
+      this.setMinZoom(Math.max(0, zoom - 0.3));
+      this.setView(center, zoom, { animate: false });
     };
   })();
 "
@@ -324,7 +330,7 @@ ui <- fluidPage(
             uiOutput("map_caption", class = "map-caption"),
             leafletOutput("state_map", height = 520),
             p(class = "map-note",
-              "Boundaries: Commission for Environmental Cooperation, North American Environmental Atlas (2022). Hawaii and Puerto Rico are repositioned.")
+              "Boundaries: Commission for Environmental Cooperation, North American Environmental Atlas (2022). Hawaii and Puerto Rico are shown in insets, enlarged and repositioned.")
           )
         ),
         div(
@@ -440,6 +446,11 @@ server <- function(input, output, session) {
       minZoom = 1, maxZoom = 8
     )) %>%
       addMapPane("selected", zIndex = 450) %>%
+      addPolygons(
+        data = inset_frames, group = "insets",
+        fill = FALSE, color = "#8a8a8a", weight = 1, opacity = 1,
+        options = pathOptions(interactive = FALSE)
+      ) %>%
       draw_states("All", "All")
   })
 

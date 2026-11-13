@@ -2,7 +2,7 @@
 
 Follow-ups noted on 2026-10-13, after Abundance Visualization was unpublished and the regulatory map was redesigned. Updated 2026-11-12 with the U.S. + Canada data update.
 
-- [ ] **Upload the regulatory data files to the shared Google Drive folder.** Data folders are git-ignored, so collaborators need these from the Drive: `Final Regulated Plants by State July 2026.xlsx`, the `North America simplified` shapefile (zip), and the built `state_shapes.rds`. Without `state_shapes.rds` they have to build it with `scripts/build_state_shapes.R` (see the README).
+- [ ] **Upload the regulatory data files to the shared Google Drive folder.** Data folders are git-ignored, so collaborators need these from the Drive: `Final Regulated Plants by State July 2026.xlsx`, the `North America simplified` shapefile (zip), and the built `state_shapes.rds` and `inset_frames.rds`. Without them they have to build it with `scripts/build_state_shapes.R` (see the README).
 - [ ] **Delete the obsolete local files** in `shiny-apps/regulatory-visualization/data/`: `state_polygons.rds` and the June 2025 CSV. The app no longer reads them, and `.dockerignore` keeps them out of the image.
 - [x] **Remove Shiny Server's example apps from the image.** Done 2026-11-12 (`RUN rm -rf /srv/shiny-server/*` in the `Dockerfile`).
 - [x] **Pin the base image.** Done 2026-11-12 (`rocker/shiny:4.5.3`).

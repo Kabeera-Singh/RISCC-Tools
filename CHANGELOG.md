@@ -9,6 +9,8 @@
 
 ### App (`shiny-apps/regulatory-visualization/app.R`)
 - **Map:** shows the U.S. and Canada in a North America equal-area projection. Alaska sits in its real place, Hawaii (main islands) and Puerto Rico are moved in near the lower 48, and Mexico is not drawn. The initial view fits the projected extent through a small Leaflet method (`fitProjectedExtent`), because `fitBounds()` mis-frames azimuthal projections.
+- **Insets:** Hawaii (1.8×, turned north-up) and Puerto Rico (3×) are enlarged and drawn in framed insets so they can be seen and clicked. The frames come from `data/inset_frames.rds`, built alongside `state_shapes.rds`.
+- **Zoom:** zooming out stops just past the full view.
 - **State/province dropdown:** grouped into "United States" and "Canada" and built from the shapes. Clicking any province or state selects it.
 - **Federal lists:** the map caption says whether a species is also federally regulated in the U.S., in Canada, or in both.
 - **Map labels:** in species mode, places with no list in the dataset (e.g. Quebec, Georgia) say "No regulated species listed" instead of "Not regulated".
@@ -16,7 +18,7 @@
 - **Small cleanups:** the species list is computed once at startup, table cells are HTML-escaped, and the unused `readr` import is gone.
 
 ### Build and deploy
-- `scripts/build_state_shapes.R` reads the shapefile, keeps the U.S. and Canada, simplifies with `rmapshaper`, repositions HI and PR, and writes `state_shapes.rds` (~140 KB).
+- `scripts/build_state_shapes.R` reads the shapefile, keeps the U.S. and Canada, simplifies with `rmapshaper`, repositions HI and PR, and writes `state_shapes.rds` (~140 KB) and `inset_frames.rds`.
 - `scripts/preprocess_data.R` reads the xlsx, renames the column, and warns about any code without a map outline.
 - `Dockerfile`:
   - pinned to `rocker/shiny:4.5.3`
@@ -27,7 +29,7 @@
 - `README.MD`: covers the new data files, the shape build, and the ECR/ECS names and commands.
 
 ### Still to do (see `TODO.md`)
-- Upload the xlsx, the shapefile zip and `state_shapes.rds` to the shared Google Drive folder.
+- Upload the xlsx, the shapefile zip, `state_shapes.rds` and `inset_frames.rds` to the shared Google Drive folder.
 - Delete the old local `state_polygons.rds` and the June 2025 CSV.
 - Add an ECR lifecycle policy.
 

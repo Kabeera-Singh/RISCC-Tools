@@ -134,7 +134,7 @@ If you don't have R installed locally, you can skip this step — the apps will 
 
 Preprocessing the regulatory data needs the `readxl` package. Its `State/Province` column (codes like `US-MA`, `CA-ON`, `US-FED`, `CA-FED`) is stored as `State` in `plants_data.rds`, and the script warns if any code has no map outline.
 
-**Required for the regulatory map:** `shiny-apps/regulatory-visualization/data/state_shapes.rds` (U.S. state and Canadian province outlines from the CEC North American Environmental Atlas, with Hawaii and Puerto Rico moved in near the lower 48). Get it from the shared Google Drive folder, or build it from the shapefile. The build needs the `sf` package, plus `rmapshaper` for cleaner simplification (optional):
+**Required for the regulatory map:** `shiny-apps/regulatory-visualization/data/state_shapes.rds` and `inset_frames.rds` (U.S. state and Canadian province outlines from the CEC North American Environmental Atlas, with Hawaii and Puerto Rico enlarged in framed insets near the lower 48). Get it from the shared Google Drive folder, or build it from the shapefile. The build needs the `sf` package, plus `rmapshaper` for cleaner simplification (optional):
 
 ```bash
 Rscript scripts/build_state_shapes.R

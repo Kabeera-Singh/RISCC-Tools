@@ -30,25 +30,52 @@ shapes <- shapes[shapes$COUNTRY %in% c("USA", "CAN") & shapes$STATEABB != "US-VI
                  c("NAME", "COUNTRY", "STATEABB")]
 
 message("Simplifying ", nrow(shapes), " features...")
-if (requireNamespace("rmapshaper", quietly = TRUE)) {
-  shapes <- rmapshaper::ms_simplify(shapes, keep = 0.02, keep_shapes = TRUE)
-} else {
-  message("  rmapshaper not installed; using sf::st_simplify")
-  shapes <- sf::st_simplify(shapes, dTolerance = 3000, preserveTopology = TRUE)
+# Hawaii and Puerto Rico are drawn enlarged (below), so they keep more detail.
+# They share no borders, so simplifying them separately leaves no gaps.
+simplify <- function(x, keep, tolerance) {
+  if (requireNamespace("rmapshaper", quietly = TRUE)) {
+    rmapshaper::ms_simplify(x, keep = keep, keep_shapes = TRUE)
+  } else {
+    sf::st_simplify(x, dTolerance = tolerance, preserveTopology = TRUE)
+  }
 }
+if (!requireNamespace("rmapshaper", quietly = TRUE)) {
+  message("  rmapshaper not installed; using sf::st_simplify")
+}
+is_inset <- shapes$STATEABB %in% c("US-HI", "US-PR")
+shapes <- rbind(simplify(shapes[!is_inset, ], keep = 0.02, tolerance = 3000),
+                simplify(shapes[is_inset, ], keep = 0.15, tolerance = 500))
 
-# Move Hawaii and Puerto Rico in next to the lower 48 so the map stays compact.
-# The source CRS is Lambert azimuthal equal-area in metres, so a plain offset
-# keeps their shape. Alaska and Canada stay where they are.
-# Each one is moved so its bounding-box centre lands on the given point (metres).
-move_feature_to <- function(shapes, abb, x, y) {
+# Hawaii and Puerto Rico become insets next to the lower 48: enlarged so they
+# can be seen and clicked, turned north-up (the projection tilts places far
+# from its centre), and framed. The source CRS is Lambert azimuthal
+# equal-area in metres, so these are plain affine moves. Alaska and Canada
+# stay where they are.
+make_inset <- function(shapes, abb, x, y, scale) {
   i <- which(shapes$STATEABB == abb)
   geom <- sf::st_geometry(shapes)
-  bb <- sf::st_bbox(geom[i])
-  geom[i] <- geom[i] + c(x - (bb[["xmin"]] + bb[["xmax"]]) / 2,
-                         y - (bb[["ymin"]] + bb[["ymax"]]) / 2)
+  centre <- sf::st_coordinates(sf::st_centroid(sf::st_as_sfc(sf::st_bbox(geom[i]))))[1, ]
+
+  # Angle between local north and the map's up direction
+  centre_ll <- sf::st_coordinates(sf::st_transform(
+    sf::st_sfc(sf::st_point(centre), crs = sf::st_crs(shapes)), 4326))[1, ]
+  north <- sf::st_coordinates(sf::st_transform(
+    sf::st_sfc(sf::st_point(centre_ll + c(0, 0.5)), crs = 4326), sf::st_crs(shapes)))[1, ]
+  theta <- atan2(north[1] - centre[1], north[2] - centre[2])
+  rot <- matrix(c(cos(theta), -sin(theta), sin(theta), cos(theta)), 2) * scale
+
+  geom[i] <- (geom[i] - centre) * rot + c(x, y)
   sf::st_geometry(shapes) <- sf::st_set_crs(geom, sf::st_crs(shapes))
   shapes
+}
+
+# Frame around an inset, padded by pad metres. Only the four corners are
+# needed: Leaflet projects each vertex and draws straight lines between them.
+inset_frame <- function(shapes, abb, pad) {
+  bb <- sf::st_bbox(shapes[shapes$STATEABB == abb, ])
+  sf::st_as_sfc(sf::st_bbox(c(xmin = bb[["xmin"]] - pad, ymin = bb[["ymin"]] - pad,
+                              xmax = bb[["xmax"]] + pad, ymax = bb[["ymax"]] + pad),
+                            crs = sf::st_crs(shapes)))
 }
 
 # Keep only Hawaii's main islands; the Northwestern Hawaiian Islands stretch
@@ -58,8 +85,16 @@ main_islands <- sf::st_transform(sf::st_as_sfc(sf::st_bbox(
   c(xmin = -160.6, ymin = 18.5, xmax = -154.5, ymax = 22.5), crs = 4326)), sf::st_crs(shapes))
 sf::st_geometry(shapes)[hi] <- sf::st_intersection(sf::st_geometry(shapes)[hi], main_islands)
 
-shapes <- move_feature_to(shapes, "US-HI", x = -1.65e6, y = -1.85e6) # off southern California
-shapes <- move_feature_to(shapes, "US-PR", x =  0.70e6, y = -2.20e6) # Gulf of Mexico
+shapes <- make_inset(shapes, "US-HI", x = -1.55e6, y = -2.05e6, scale = 1.8) # off southern California
+shapes <- make_inset(shapes, "US-PR", x =  0.85e6, y = -2.27e6, scale = 3.0) # Gulf of Mexico
+
+frames <- sf::st_sf(
+  NAME = c("Hawaii", "Puerto Rico"),
+  geometry = c(inset_frame(shapes, "US-HI", 90e3), inset_frame(shapes, "US-PR", 70e3))
+)
+frames_out <- file.path(regulatory_data_dir, "inset_frames.rds")
+saveRDS(sf::st_transform(frames, 4326), frames_out)
+message("  Saved ", frames_out)
 
 shapes <- sf::st_make_valid(sf::st_transform(shapes, 4326))
 shapes$COUNTRY <- unname(c(USA = "United States", CAN = "Canada")[shapes$COUNTRY])

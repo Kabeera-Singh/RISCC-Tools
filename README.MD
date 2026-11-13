@@ -1,6 +1,6 @@
 # RISCC Tools
 
-Interactive web tools for visualizing species abundance and regulatory data across U.S. ecoregions.
+Interactive web tools for visualizing species abundance across U.S. ecoregions and regulated invasive plants across U.S. states and Canadian provinces.
 
 **Live site:** [https://www.riscctools.org](https://www.riscctools.org)
 
@@ -10,7 +10,7 @@ Interactive web tools for visualizing species abundance and regulatory data acro
 | Component                    | Description                                                          |
 | ---------------------------- | -------------------------------------------------------------------- |
 | **abundance-visualization**  | Map-based explorer for species abundance across eastern U.S. forests. **Not currently deployed** (unpublished 2026-10-13; re-enable via the commented lines in `Dockerfile` and `nginx/conf.d/default.conf`) |
-| **regulatory-visualization** | State-by-state view of regulated plant species                       |
+| **regulatory-visualization** | State- and province-level view of regulated plant species (U.S. and Canada) |
 | **Homepage**                 | Static landing page linking to both tools                            |
 
 
@@ -118,7 +118,7 @@ cd RISCC-Tools
 The Shiny apps need CSV and RDS data files that are not stored in Git (they are too large). Download them from the shared Google Drive folder and place them in:
 
 - `shiny-apps/abundance-visualization/data/` — needs `appendixS2.csv`, `eco_simplified.rds`, `s7_merged.rds`
-- `shiny-apps/regulatory-visualization/data/` — needs `Final Regulated Plants by State June 2025 - MergedPlantsByState.csv`
+- `shiny-apps/regulatory-visualization/data/` — needs `Final Regulated Plants by State July 2026.xlsx` (the app reads its `MergedPlantsByState` sheet) and, to rebuild the map outlines, the `North America simplified` shapefile unzipped into `data/north-america-shapefile/`
 
 ### 3. Preprocess the data
 
@@ -132,16 +132,18 @@ The script produces several files including `appendixS2.rds`, `species_list.rds`
 
 If you don't have R installed locally, you can skip this step — the apps will still work but may load more slowly from the raw CSVs.
 
-**Required for the regulatory map:** `shiny-apps/regulatory-visualization/data/state_shapes.rds` (state outlines from the U.S. Census Bureau). Get it from the shared Google Drive folder, or build it yourself. The build needs internet access and the `sf` and `tigris` packages:
+Preprocessing the regulatory data needs the `readxl` package. Its `State/Province` column (codes like `US-MA`, `CA-ON`, `US-FED`, `CA-FED`) is stored as `State` in `plants_data.rds`, and the script warns if any code has no map outline.
+
+**Required for the regulatory map:** `shiny-apps/regulatory-visualization/data/state_shapes.rds` (U.S. state and Canadian province outlines from the CEC North American Environmental Atlas, with Hawaii and Puerto Rico moved in near the lower 48). Get it from the shared Google Drive folder, or build it from the shapefile. The build needs the `sf` package, plus `rmapshaper` for cleaner simplification (optional):
 
 ```bash
 Rscript scripts/build_state_shapes.R
 ```
 
-Without R installed locally, you can run it inside the built image and then rebuild:
+Run it before `preprocess_data.R` so the code check has outlines to compare against. Without R installed locally, you can run it inside the built image and then rebuild:
 
 ```bash
-docker run --rm -v "$PWD:/repo" -w /repo --entrypoint sh riscc-tools -c 'Rscript -e "install.packages(\"tigris\")" && Rscript scripts/build_state_shapes.R'
+docker run --rm -v "$PWD:/repo" -w /repo --entrypoint sh riscc-tools -c 'Rscript -e "install.packages(c(\"readxl\", \"rmapshaper\"))" && Rscript scripts/build_state_shapes.R && Rscript scripts/preprocess_data.R'
 ```
 
 ### 4. Build and run locally
@@ -258,16 +260,26 @@ Replace `<ACCOUNT_ID>` with your AWS account number (12 digits).
 ### Step 3: Tag and push the image
 
 ```bash
-docker tag riscc-tools:latest <ACCOUNT_ID>.dkr.ecr.us-east-2.amazonaws.com/<ECR_REPO>:latest
-docker push <ACCOUNT_ID>.dkr.ecr.us-east-2.amazonaws.com/<ECR_REPO>:latest
+docker tag riscc-tools:latest <ACCOUNT_ID>.dkr.ecr.us-east-2.amazonaws.com/riscc-tools:latest
+docker tag riscc-tools:latest <ACCOUNT_ID>.dkr.ecr.us-east-2.amazonaws.com/riscc-tools:$(date +%F)
+docker push --all-tags <ACCOUNT_ID>.dkr.ecr.us-east-2.amazonaws.com/riscc-tools
 ```
 
-Replace `<ECR_REPO>` with the ECR repository name for RISCC Tools.
+The ECR repository is `riscc-tools`. The dated tag keeps a rollback point; `aws sts get-caller-identity` prints the account ID.
 
 ### Step 4: Deploy the new image on ECS
 
+From the command line:
+
+```bash
+aws ecs update-service --region us-east-2 --cluster default --service riscc-tools-service --force-new-deployment
+aws ecs wait services-stable --region us-east-2 --cluster default --services riscc-tools-service
+```
+
+Or in the console:
+
 1. Go to the [AWS ECS Console](https://us-east-2.console.aws.amazon.com/ecs/v2/clusters?region=us-east-2)
-2. Select the cluster and service running RISCC Tools
+2. Select cluster `default`, service `riscc-tools-service`
 3. Click **Update service**
 4. Check **Force new deployment**
 5. Click **Update**
@@ -302,8 +314,8 @@ RISCC-Tools/
 ├── supervisor.conf             # Runs Nginx and Shiny Server together
 ├── shiny-server.conf           # Shiny Server settings (port 3838)
 ├── scripts/
-│   ├── preprocess_data.R       # CSV → RDS data preprocessing
-│   └── build_state_shapes.R    # Census state outlines for the regulatory map
+│   ├── preprocess_data.R       # CSV/XLSX → RDS data preprocessing
+│   └── build_state_shapes.R    # State/province outlines for the regulatory map
 ├── ui/
 │   └── shared/css/             # Design tokens, layout, and components shared across apps
 ├── shiny-apps/

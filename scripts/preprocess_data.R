@@ -112,14 +112,31 @@ if (file.exists(s7_path)) {
 
 # ---- 3. Regulatory Visualization Data ----
 
-plants_csv <- file.path(regulatory_data_dir, "Final Regulated Plants by State June 2025 - MergedPlantsByState.csv")
-if (file.exists(plants_csv)) {
+# Source: the MergedPlantsByState sheet of the regulated plants spreadsheet.
+# Its State/Province column holds codes like US-MA, CA-ON, US-FED and CA-FED,
+# which match STATEABB in state_shapes.rds. The app calls that column State.
+plants_xlsx <- file.path(regulatory_data_dir, "Final Regulated Plants by State July 2026.xlsx")
+if (file.exists(plants_xlsx)) {
   message("Processing regulatory app data...")
-  plants <- read_csv(plants_csv, show_col_types = FALSE)
+  plants <- readxl::read_excel(plants_xlsx, sheet = "MergedPlantsByState", na = "") %>%
+    rename(State = `State/Province`) %>%
+    filter(!is.na(State))
   saveRDS(plants, file.path(regulatory_data_dir, "plants_data.rds"))
-  message("  Saved plants_data.rds")
+  message("  Saved plants_data.rds (", nrow(plants), " rows, ",
+          n_distinct(plants$State), " jurisdictions)")
+
+  shapes_path <- file.path(regulatory_data_dir, "state_shapes.rds")
+  if (file.exists(shapes_path)) {
+    shape_codes <- readRDS(shapes_path)$STATEABB
+    unmatched <- setdiff(plants$State, c(shape_codes, "US-FED", "CA-FED"))
+    if (length(unmatched) > 0) {
+      warning("Codes with no map shape: ", paste(unmatched, collapse = ", "))
+    } else {
+      message("  Every State/Province code has a map shape")
+    }
+  }
 } else {
-  message("Skipping regulatory data: CSV not found")
+  message("Skipping regulatory data: ", basename(plants_xlsx), " not found")
 }
 
 # ---- 4. State Outlines for the Regulatory Map ----

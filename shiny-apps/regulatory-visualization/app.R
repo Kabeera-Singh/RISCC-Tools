@@ -4,42 +4,80 @@ library(readxl)
 library(shiny)
 library(shinyjs)
 library(DT)
-library(readr)
 library(sf)
 
-# Load plants data (RDS preferred for speed; fallback to CSV)
+# Regulated plants by U.S. state and Canadian province. The State column holds
+# codes like US-MA, CA-ON, US-FED and CA-FED (State/Province in the source
+# spreadsheet). RDS is built by scripts/preprocess_data.R; the xlsx is a fallback.
 if (file.exists("data/plants_data.rds")) {
   plants_data <- readRDS("data/plants_data.rds")
 } else {
-  plants_data <- read_csv("data/Final Regulated Plants by State June 2025 - MergedPlantsByState.csv", show_col_types = FALSE)
+  plants_data <- read_excel("data/Final Regulated Plants by State July 2026.xlsx",
+                            sheet = "MergedPlantsByState", na = "") %>%
+    rename(State = `State/Province`) %>%
+    filter(!is.na(State))
 }
 
-# State outlines: Census 1:20m boundaries with AK/HI/PR moved below the lower 48
-# (built by scripts/build_state_shapes.R)
+# State and province outlines (CEC North American Atlas), with Hawaii and Puerto
+# Rico moved in near the lower 48. Built by scripts/build_state_shapes.R.
 state_shapes <- readRDS("data/state_shapes.rds")
 
 species_counts <- plants_data %>%
   distinct(State, Clean.Scientific.Name) %>%
   count(State, name = "n_species")
-state_shapes$n_species <- species_counts$n_species[match(state_shapes$STUSPS, species_counts$State)]
+state_shapes$n_species <- species_counts$n_species[match(state_shapes$STATEABB, species_counts$State)]
 state_shapes$n_species[is.na(state_shapes$n_species)] <- 0L
 
-federal_species <- unique(plants_data$Clean.Scientific.Name[plants_data$State == "FED"])
+us_federal_species <- unique(plants_data$Clean.Scientific.Name[plants_data$State == "US-FED"])
+ca_federal_species <- unique(plants_data$Clean.Scientific.Name[plants_data$State == "CA-FED"])
+species_choices <- c("All", sort(unique(plants_data$Clean.Scientific.Name)))
 
-us_bounds <- unname(sf::st_bbox(state_shapes))
+# Lambert azimuthal equal-area centred on North America (the projection of the
+# source boundaries)
+map_proj4 <- "+proj=laea +lat_0=45 +lon_0=-100 +x_0=0 +y_0=0 +R=6370997 +units=m +no_defs"
 
+# Initial view: the extent of all shapes in projected metres. Leaflet's
+# fitBounds() can't be used here: it assumes a lon/lat rectangle stays a
+# rectangle, which isn't true in an azimuthal projection, and Alaska's
+# Aleutians cross the 180th meridian. fit_extent_js fits this extent instead.
+map_bounds <- unname(as.numeric(sf::st_bbox(sf::st_transform(state_shapes, map_proj4))))
+
+# Adds a fitProjectedExtent(xmin, ymin, xmax, ymax, padding) method to leaflet
+# maps; callable from R (including leafletProxy) through invokeMethod()
+fit_extent_js <- "
+  (function register() {
+    if (!window.LeafletWidget) { $(register); return; }
+    LeafletWidget.methods.fitProjectedExtent = function(xmin, ymin, xmax, ymax, pad) {
+      var crs = this.options.crs;
+      var size = this.getSize().subtract([2 * pad, 2 * pad]);
+      if (size.x <= 0 || size.y <= 0) return;
+      var zoom = crs.zoom(Math.min(size.x / (xmax - xmin), size.y / (ymax - ymin)));
+      var snap = this.options.zoomSnap || 1;
+      var center = crs.projection.unproject(L.point((xmin + xmax) / 2, (ymin + ymax) / 2));
+      this.setView(center, Math.floor(zoom / snap) * snap, { animate: false });
+    };
+  })();
+"
+
+# Dropdown choices, grouped by country (DC has no list of its own)
+selectable_shapes <- sf::st_drop_geometry(state_shapes)[state_shapes$STATEABB != "US-DC", ]
 state_map <- data.frame(
-  StateName = c(state.name, "Puerto Rico"),
-  StateAbbr = c(state.abb, "PR"),
+  StateName = selectable_shapes$NAME,
+  StateAbbr = selectable_shapes$STATEABB,
+  Country = selectable_shapes$COUNTRY,
   stringsAsFactors = FALSE
 )
 state_name_to_abbr <- setNames(state_map$StateAbbr, state_map$StateName)
+state_choices <- c(
+  list("All" = "All"),
+  lapply(split(state_map$StateName, state_map$Country)[c("United States", "Canada")], sort)
+)
 
-# Map styling: Albers equal-area projection with no basemap tiles, shaded in the
-# site's red palette
-albers_crs <- leafletCRS(
-  crsClass = "L.Proj.CRS", code = "EPSG:5070",
-  proj4def = "+proj=aea +lat_0=23 +lon_0=-96 +lat_1=29.5 +lat_2=45.5 +x_0=0 +y_0=0 +datum=NAD83 +units=m +no_defs",
+# Map styling: the equal-area projection above, no basemap tiles, shaded in
+# the site's red palette
+map_crs <- leafletCRS(
+  crsClass = "L.Proj.CRS", code = "NA-LAEA",
+  proj4def = map_proj4,
   resolutions = 2^(16:7)
 )
 no_data_color <- "#e2e2e2"
@@ -50,7 +88,7 @@ count_labels <- c("None listed", "1-25", "26-50", "51-100", "101-150", "151+")
 count_colors <- c(no_data_color, "#fcbba1", "#fc9272", "#ef5a43", "#cb2a24", "#881c1c")
 
 fit_to_bbox <- function(map, bb) {
-  fitBounds(map, bb[1], bb[2], bb[3], bb[4], options = list(padding = c(8, 8)))
+  invokeMethod(map, NULL, "fitProjectedExtent", bb[1], bb[2], bb[3], bb[4], 8)
 }
 
 # Shades every state (species count by default, or regulated/not for a chosen
@@ -65,13 +103,17 @@ draw_states <- function(map, selected_state, selected_species) {
     species_rows <- plants_data[plants_data$Clean.Scientific.Name == selected_species, ]
     levels_by_state <- tapply(species_rows$Reg.Level, species_rows$State,
                               function(x) paste(unique(x), collapse = ", "))
-    reg_level <- unname(levels_by_state[state_shapes$STUSPS])
+    reg_level <- unname(levels_by_state[state_shapes$STATEABB])
     regulated <- !is.na(reg_level)
     fill <- ifelse(regulated, regulated_color, no_data_color)
+    # Places with no list in the dataset get their own wording, since we can't
+    # say the species is unregulated there
     labels <- ifelse(
       regulated,
       sprintf("<strong>%s</strong><br>Regulated: %s", state_names, htmltools::htmlEscape(reg_level)),
-      sprintf("<strong>%s</strong><br>Not regulated", state_names)
+      ifelse(state_shapes$n_species == 0,
+             sprintf("<strong>%s</strong><br>No regulated species listed", state_names),
+             sprintf("<strong>%s</strong><br>Not regulated", state_names))
     )
     legend_colors <- c(regulated_color, no_data_color)
     legend_labels <- c("Regulated", "Not regulated")
@@ -97,7 +139,7 @@ draw_states <- function(map, selected_state, selected_species) {
     clearGroup("selected") %>%
     clearControls() %>%
     addPolygons(
-      data = state_shapes, layerId = ~STUSPS, group = "states",
+      data = state_shapes, layerId = ~STATEABB, group = "states",
       fillColor = fill, fillOpacity = fill_opacity,
       color = "#ffffff", weight = 0.8, opacity = 1,
       label = lapply(labels, htmltools::HTML),
@@ -121,12 +163,22 @@ draw_states <- function(map, selected_state, selected_species) {
         options = pathOptions(pane = "selected", interactive = FALSE)
       )
   }
-  fit_to_bbox(map, us_bounds)
+  fit_to_bbox(map, map_bounds)
+}
+
+# Notes a species' federal listing (US-FED / CA-FED) for the map caption
+federal_note <- function(species) {
+  in_us <- species %in% us_federal_species
+  in_ca <- species %in% ca_federal_species
+  if (in_us && in_ca) " (also federally regulated in the U.S. and Canada)"
+  else if (in_us) " (also federally regulated in the U.S.)"
+  else if (in_ca) " (also federally regulated in Canada)"
 }
 
 clean_colnames <- function(df) {
   df %>%
     rename(
+      `State/Province` = State,
       `Raw Scientific Name` = Raw.Scientific.Name,
       `Cleaned Scientific Name` = Clean.Scientific.Name,
       `Regulatory Level` = Reg.Level,
@@ -184,12 +236,13 @@ ui <- fluidPage(
     "))
   ),
   useShinyjs(),
+  tags$script(HTML(fit_extent_js)),
 
   div(
     class = "app-header",
     div(
       class = "header-container",
-      h1(tags$i(class = "fas fa-seedling"), " State-Based Regulated Plant Data Viewer"),
+      h1(tags$i(class = "fas fa-seedling"), " State- and Province-Based Regulated Plant Data Viewer"),
       a(href = "/", class = "home-btn",
         tags$i(class = "fas fa-home"), " Back to Home"
       )
@@ -202,11 +255,15 @@ ui <- fluidPage(
       div(
         class = "info-card",
         h5(tags$i(class = "fas fa-info-circle"), " How to Use This Tool"),
-        p("Choose a state from the dropdown to create a list of all regulated species in that state. Choose a species from the dropdown to create a list of all states where that species is regulated. The map will highlight your selections, and the table below will update."),
+        p("Choose a U.S. state or Canadian province from the dropdown to create a list of all regulated species there. Choose a species from the dropdown to create a list of all states and provinces where that species is regulated. The map will highlight your selections, and the table below will update."),
         p(
-          "Data sources: The data from this resource was compiled from the National Plant Board Website ",
-          tags$a(href = "https://www.nationalplantboard.org/state-law--regulation-summaries.html", "here", target = "_blank"),
-          ". Learn more about regulatory level definitions in the Reg.Level Definitions tab ",
+          "Data sources: U.S. state lists were compiled from the ",
+          tags$a(href = "https://www.nationalplantboard.org/state-law--regulation-summaries.html", "National Plant Board", target = "_blank"),
+          ", the U.S. federal list from ",
+          tags$a(href = "https://www.invasive.org/species/list.cfm?id=16", "Invasive.org", target = "_blank"),
+          ", and Canadian provincial lists from the ",
+          tags$a(href = "https://ccipr.ca/canadian-invasive-plant-lists/", "Canadian Council on Invasive Plant Regulation (CCIPR)", target = "_blank"),
+          ". Lists were last updated in July 2026. Learn more about regulatory level definitions in the Reg.Level Definitions tab ",
           tags$a(href = "https://docs.google.com/spreadsheets/d/1XdmtsDxd4A3fURZixemEsAvCmYQ8_XM9d10WezWCWlg/edit?usp=sharing", "here", target = "_blank"),
           "."
         )
@@ -229,10 +286,10 @@ ui <- fluidPage(
               class = "form-group",
               tags$label(
                 `for` = "selected_state",
-                tags$i(class = "fas fa-map-marker-alt"), " Choose a State:"
+                tags$i(class = "fas fa-map-marker-alt"), " Choose a State or Province:"
               ),
               selectInput("selected_state", label = NULL,
-                choices = c("All", state_map$StateName), width = "100%"
+                choices = state_choices, width = "100%"
               )
             ),
             div(
@@ -242,14 +299,14 @@ ui <- fluidPage(
                 tags$i(class = "fas fa-leaf"), " Choose a Species:"
               ),
               selectInput("selected_species", label = NULL,
-                choices = NULL, width = "100%"
+                choices = species_choices, width = "100%"
               )
             ),
             actionButton("reset_btn", "Reset Filters",
               icon = icon("refresh"), class = "btn-reset"
             ),
             p(class = "filter-hint",
-              tags$i(class = "fas fa-hand-pointer"), " Tip: click a state on the map to select it.")
+              tags$i(class = "fas fa-hand-pointer"), " Tip: click a state or province on the map to select it.")
           )
         )
       ),
@@ -265,9 +322,9 @@ ui <- fluidPage(
           div(
             class = "map-body",
             uiOutput("map_caption", class = "map-caption"),
-            leafletOutput("state_map", height = 460),
+            leafletOutput("state_map", height = 520),
             p(class = "map-note",
-              "State boundaries: U.S. Census Bureau. Alaska, Hawaii and Puerto Rico are repositioned and not to scale.")
+              "Boundaries: Commission for Environmental Cooperation, North American Environmental Atlas (2022). Hawaii and Puerto Rico are repositioned.")
           )
         ),
         div(
@@ -302,7 +359,7 @@ ui <- fluidPage(
         class = "citation-section",
         p(
           strong("Recommended Citation: "),
-          "Singh, K., J. Salva, M. Fertakos, and B.A. Bradley. RISCC Tools: State-based regulated plant data viewer. URL: https://www.riscctools.org/regulatory-visualization/, access date."
+          "Singh, K., J. Salva, M. Fertakos, and B.A. Bradley. RISCC Tools: State- and province-based regulated plant data viewer. URL: https://www.riscctools.org/regulatory-visualization/, access date."
         )
       )
     )
@@ -317,11 +374,6 @@ server <- function(input, output, session) {
     session$sendCustomMessage("ga_event", list(event_name = event_name, params = params))
   }
 
-  observe({
-    species_choices <- sort(unique(plants_data$Clean.Scientific.Name))
-    updateSelectInput(session, "selected_species", choices = c("All", species_choices))
-  })
-
   observeEvent(input$selected_state, {
     ga_event("filter_state", list(state = input$selected_state))
   }, ignoreInit = TRUE)
@@ -335,7 +387,7 @@ server <- function(input, output, session) {
     ga_event("reset_filters")
     updateSelectInput(session, "selected_state", selected = "All")
     updateSelectInput(session, "selected_species", selected = "All")
-    leafletProxy("state_map") %>% fit_to_bbox(us_bounds)
+    leafletProxy("state_map") %>% fit_to_bbox(map_bounds)
   })
 
   filtered_data <- reactive({
@@ -362,8 +414,8 @@ server <- function(input, output, session) {
       class = 'display',
       thead(
         tr(
-          th('State ', span(class="info-icon", '?', 
-            span(class="tooltip-text", 'U.S. state or territory abbreviation where the plant is regulated'))),
+          th('State/Province ', span(class="info-icon", '?',
+            span(class="tooltip-text", 'Where the plant is regulated, as country-region code: US- for U.S. states and territories (e.g., US-MA), CA- for Canadian provinces (e.g., CA-ON). US-FED and CA-FED are the U.S. and Canadian federal lists.'))),
           th('Scientific Name ', span(class="info-icon", '?', 
             span(class="tooltip-text", 'Standardized scientific name after data cleaning and validation'))),
           th('Regulatory Level ', span(class="info-icon", '?', 
@@ -378,13 +430,13 @@ server <- function(input, output, session) {
     
     datatable(df, container = sketch,
       options = list(pageLength = 10, dom = "frtip"),
-      rownames = FALSE, escape = FALSE
+      rownames = FALSE
     )
   })
 
   output$state_map <- renderLeaflet({
     leaflet(options = leafletOptions(
-      crs = albers_crs, zoomSnap = 0.1, zoomDelta = 0.5,
+      crs = map_crs, zoomSnap = 0.1, zoomDelta = 0.5,
       minZoom = 1, maxZoom = 8
     )) %>%
       addMapPane("selected", zIndex = 450) %>%
@@ -396,9 +448,9 @@ server <- function(input, output, session) {
       draw_states(input$selected_state, input$selected_species)
   }, ignoreInit = TRUE)
 
-  # Clicking a state selects it; clicking the selected state again clears it
+  # Clicking a state or province selects it; clicking the selected state again clears it
   observeEvent(input$state_map_shape_click, {
-    clicked <- state_shapes$NAME[match(input$state_map_shape_click$id, state_shapes$STUSPS)]
+    clicked <- state_shapes$NAME[match(input$state_map_shape_click$id, state_shapes$STATEABB)]
     if (is.na(clicked) || !(clicked %in% state_map$StateName)) return()
     ga_event("map_click_state", list(state = clicked))
     updateSelectInput(session, "selected_state",
@@ -409,11 +461,11 @@ server <- function(input, output, session) {
     species <- input$selected_species
     caption <- if (!is.null(species) && species != "All") {
       tagList(
-        "States regulating ", tags$em(species),
-        if (species %in% federal_species) " (also federally regulated)"
+        "States and provinces regulating ", tags$em(species),
+        federal_note(species)
       )
     } else {
-      "Number of regulated plant species by state"
+      "Number of regulated plant species by state and province"
     }
 
     selected <- state_shapes[state_shapes$NAME == input$selected_state, ]

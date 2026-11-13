@@ -269,7 +269,7 @@ ui <- fluidPage(
           tags$a(href = "https://www.invasive.org/species/list.cfm?id=16", "Invasive.org", target = "_blank"),
           ", and Canadian provincial lists from the ",
           tags$a(href = "https://ccipr.ca/canadian-invasive-plant-lists/", "Canadian Council on Invasive Plant Regulation (CCIPR)", target = "_blank"),
-          ". Lists were last updated in July 2026. Learn more about regulatory level definitions in the Reg.Level Definitions tab ",
+          ". Learn more about regulatory level definitions in the Reg.Level Definitions tab ",
           tags$a(href = "https://docs.google.com/spreadsheets/d/1XdmtsDxd4A3fURZixemEsAvCmYQ8_XM9d10WezWCWlg/edit?usp=sharing", "here", target = "_blank"),
           "."
         )

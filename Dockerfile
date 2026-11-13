@@ -1,4 +1,6 @@
-FROM rocker/shiny:latest
+# Pinned so R and package versions don't shift under a rebuild (each versioned
+# rocker image also pins its package repo to a dated snapshot)
+FROM rocker/shiny:4.5.3
 
 # Install nginx, supervisor, and additional system dependencies for spatial packages
 RUN apt-get update && apt-get install -y \
@@ -28,13 +30,8 @@ RUN apt-get update && apt-get install -y \
     libproj-dev \
     cmake \
     build-essential \
-    # Rust dependencies for gifski package
     curl \
     && rm -rf /var/lib/apt/lists/*
-
-# Install Rust (required for gifski package used by climateR)
-RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-ENV PATH="/root/.cargo/bin:${PATH}"
 
 # Set environment variables for spatial libraries
 ENV GDAL_CONFIG=/usr/bin/gdal-config
@@ -42,12 +39,11 @@ ENV PROJ_LIB=/usr/share/proj
 
 # Packages install from the base image's default repo (Posit Package Manager pre-built
 # Ubuntu binaries), which is far faster than compiling from cran.rstudio.com sources.
-# Install basic CRAN packages first (excluding problematic spatial ones)
-RUN R -e "install.packages(c('shiny', 'tidyverse', 'shinyWidgets', 'DT', 'stringr', 'readxl', 'shinyjs', 'rrapply', 'data.table', 'shinydashboard', 'bslib', 'dplyr', 'ggplot2', 'remotes','DBI','duckdb'), dependencies=TRUE)"
-RUN R -e "install.packages(c('httr','jsonlite'), dependencies=TRUE)"
-
-# Install remaining spatial packages
-RUN R -e "install.packages(c('leaflet', 'leafpop','shiny.fluent'), dependencies=TRUE)"
+# Only the packages the published app loads (plus their required dependencies);
+# the second command fails the build if any of them didn't install.
+# If abundance-visualization comes back, add the packages its app.R loads.
+RUN R -e "install.packages(c('shiny', 'tidyverse', 'readxl', 'shinyjs', 'DT', 'leaflet', 'sf'))" && \
+    R -e "for (p in c('shiny', 'tidyverse', 'readxl', 'shinyjs', 'DT', 'leaflet', 'sf')) library(p, character.only = TRUE)"
 
 # Copy Shiny Server configuration
 COPY shiny-server.conf /etc/shiny-server/shiny-server.conf
@@ -58,6 +54,9 @@ COPY nginx/conf.d/default.conf /etc/nginx/nginx.conf
 # Copy HTML files
 COPY nginx/html/ /usr/share/nginx/html/
 COPY ui/shared/css/ /usr/share/nginx/html/www/css/shared/
+
+# Remove Shiny Server's bundled demo apps (e.g. /01_hello/) so they aren't public
+RUN rm -rf /srv/shiny-server/*
 
 # Copy Shiny apps
 # Abundance visualization unpublished 2026-10-13

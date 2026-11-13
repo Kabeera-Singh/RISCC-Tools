@@ -1,0 +1,7 @@
+# Keep the image lean: only the files the apps read at runtime
+.git
+**/*.ipynb
+shiny-apps/abundance-visualization
+shiny-apps/regulatory-visualization/data/north-america-shapefile
+shiny-apps/regulatory-visualization/data/*.csv
+shiny-apps/regulatory-visualization/data/state_polygons.rds
